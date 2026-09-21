@@ -18,6 +18,7 @@ import numpy as np
 
 from .config import DEFAULT_LAYER_FRAC, MAX_LENGTH, MODELS, layer_index
 from .prompts import claim_text, contrast_pair
+from .tokalign import TokenStates
 
 
 @dataclass
@@ -33,6 +34,8 @@ class Backend(Protocol):
     n_layers: int
 
     def features(self, claim: str, layers: Sequence[int]) -> ItemFeatures: ...
+
+    def token_states(self, text: str, layers: Sequence[int]) -> TokenStates: ...
 
 
 class HFModel:
@@ -50,7 +53,12 @@ class HFModel:
         hf_name = spec.hf_name if spec else key
         self.key = key
         self.torch = torch
-        self.tok = AutoTokenizer.from_pretrained(hf_name)
+        self.tok = AutoTokenizer.from_pretrained(hf_name, use_fast=True)
+        if not self.tok.is_fast:
+            raise RuntimeError(
+                f"{hf_name} has no fast tokenizer, so it returns no character "
+                "offsets and cannot be span-aligned against another model. "
+                "Fall back to --map-pairs item (pooled) for this model.")
         self.lm = AutoModelForCausalLM.from_pretrained(
             hf_name, torch_dtype=torch.float16, device_map=device_map,
             output_hidden_states=True)
@@ -92,6 +100,28 @@ class HFModel:
                 lps.append(lp[n_prefix - 1:].sum().item())
         a, b = lps
         return float(np.exp(a) / (np.exp(a) + np.exp(b)))
+
+    def token_states(self, text: str, layers: Sequence[int]) -> TokenStates:
+        """Per-token hidden states with character offsets, specials dropped.
+
+        Specials and padding are exactly the tokens whose offset span is empty
+        (end <= start); they have no character extent to align on.
+        """
+        torch = self.torch
+        with torch.no_grad():
+            enc = self.tok(text, return_tensors="pt", truncation=True,
+                           max_length=MAX_LENGTH, return_offsets_mapping=True)
+            offsets = enc.pop("offset_mapping")[0].numpy()
+            enc = {k: v.to(self.lm.device) for k, v in enc.items()}
+            out = self.lm(**enc)
+            keep = offsets[:, 1] > offsets[:, 0]
+            if "attention_mask" in enc:
+                keep &= enc["attention_mask"][0].bool().cpu().numpy()
+            idx = np.where(keep)[0]
+            states = {li: out.hidden_states[li][0][idx].float().cpu().numpy()
+                      for li in layers}
+        return TokenStates(states=states, starts=offsets[idx, 0],
+                           ends=offsets[idx, 1])
 
     def features(self, claim: str, layers: Sequence[int]) -> ItemFeatures:
         pos_text, neg_text = contrast_pair(claim)

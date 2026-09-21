@@ -39,6 +39,7 @@ cmb/                      library
   data.py                 dataset loaders -> Item(claim, label); manifest-pinned
   prompts.py              claim text + CCS contrast pairs (P / not-P invariant)
   models.py               HF backend: hidden states + output P(Yes)
+  tokalign.py             span alignment + tokenizer compatibility (ablation)
   cache.py / extract.py   activation cache keyed (model, dataset, item, layer, pos|neg)
   probes.py               CCS belief probe; supervised direction for Exp 3/4
   align.py                ridge map A->B with held-out alpha selection; linear CKA
@@ -76,6 +77,30 @@ everything downstream meaningless:
 | Exp 3–4 | is Row 2 separable *and* generalizable? | either the result, or the honest cap |
 
 ## Choices worth knowing about
+
+**The probe site defaults to the final layer**, set per model with `--layer`,
+`--layer-a` and `--layer-b`. Each takes `final` (the default), a depth fraction
+(`0.6`), a negative index (`-3`), or an absolute index (`24`). Mean-pooling the
+last hidden state is what an embedding API returns, which is the setting the
+linear-alignment result was established in; fractions keep the site comparable
+across models of different depth, absolute indices do not. A requested layer
+missing from the cache triggers re-extraction rather than snapping to a
+neighbour, so the flag always means what it says.
+
+```bash
+python3 experiments/gate_b_transport.py --pair cross-family              # final/final
+python3 experiments/gate_b_transport.py --layer-a final --layer-b 0.6    # per model
+python3 experiments/exp5_layer_sweep.py --sweep 0.4,0.6,0.8,final
+```
+
+**Tokenizer differences need no special handling on the default path.** Each
+claim becomes one pooled vector per model, so the map is fitted on item-level
+pairs exactly as in the embedding-model setting — token counts never enter.
+`cmb/tokalign.py` provides character-span alignment (the union-of-boundaries
+method from the HELIX `lm_pertoken.py` work) as an *ablation*, for checking
+that a span-fitted map reaches the same Gate B verdict, plus the HELIX
+tokenizer-compatibility score, which is worth reporting next to CKA because it
+predicts whether transport will work at all.
 
 **The confident slice is the whole test (Gate A).** A probe that only separates
 truth where output confidence already does is reading confidence. Gate A scores

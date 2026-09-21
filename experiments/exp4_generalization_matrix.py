@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from common import PairRun, base_parser, header, resolve_pair, write_result
+from common import (PairRun, base_parser, header, layer_specs,
+                    resolve_pair, write_result)
 
 from cmb import align, metrics
 from cmb.config import MATRIX_DATASETS, PAIRS
@@ -36,7 +37,8 @@ def build_cells(pair, args, datasets):
     a, b = pair
     cells = {}
     for ds in datasets:
-        run = PairRun(a, b, ds, args.layer_frac, args.n, args.synthetic,
+        la, lb = layer_specs(args)
+        run = PairRun(a, b, ds, la, lb, args.n, args.synthetic,
                       args.seed).build(refresh=args.refresh)
         X_tr, y_tr, _ = subset_for(run, "train", args.mode)
         X_te, y_te, _ = subset_for(run, "test", args.mode)
@@ -88,7 +90,8 @@ def held_out_pair_transfer(cells, datasets, args, source_pair):
               f"source pair — treat this as a weak independence test.")
     out = {}
     for ds in datasets:
-        run = PairRun(ho_a, ho_b, ds, args.layer_frac, args.n, args.synthetic,
+        la, lb = layer_specs(args)
+        run = PairRun(ho_a, ho_b, ds, la, lb, args.n, args.synthetic,
                       args.seed).build(refresh=args.refresh)
         src = cells[ds]
         X_src_tr, y_src_tr = src["train"]

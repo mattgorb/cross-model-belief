@@ -20,8 +20,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cmb import align, metrics, probes                     # noqa: E402
-from cmb.config import (DEFAULT_LAYER_FRAC, PAIRS, RESULTS_DIR, SEED,  # noqa: E402
-                        TEST_FRAC, layer_index, pair_kind)
+from cmb.config import (DEFAULT_LAYER_SPEC, PAIRS, RESULTS_DIR,  # noqa: E402
+                        SEED, TEST_FRAC, pair_kind, resolve_layer)
 from cmb.data import load_items, split_items               # noqa: E402
 from cmb.extract import paired                             # noqa: E402
 
@@ -32,13 +32,25 @@ def base_parser(description: str) -> argparse.ArgumentParser:
                    help="named pair (same-family|cross-family|held-out) or 'a,b'")
     p.add_argument("--dataset", default="truthfulqa")
     p.add_argument("--n", type=int, default=800, help="items per dataset")
-    p.add_argument("--layer-frac", type=float, default=DEFAULT_LAYER_FRAC)
+    p.add_argument("--layer", default=DEFAULT_LAYER_SPEC,
+                   help="probe layer for both models: 'final' (default), a "
+                        "depth fraction like 0.6, a negative index like -3, or "
+                        "an absolute index like 24")
+    p.add_argument("--layer-a", default=None,
+                   help="override the layer for model A (same formats)")
+    p.add_argument("--layer-b", default=None,
+                   help="override the layer for model B (same formats)")
     p.add_argument("--seed", type=int, default=SEED)
     p.add_argument("--synthetic", action="store_true",
                    help="run against the synthetic backend (no GPU, no download)")
     p.add_argument("--refresh", action="store_true", help="ignore cached activations")
     p.add_argument("--tag", default="", help="suffix for the results filename")
     return p
+
+
+def layer_specs(args) -> tuple[str, str]:
+    """(layer_a, layer_b) from the CLI, each falling back to --layer."""
+    return (args.layer_a or args.layer, args.layer_b or args.layer)
 
 
 def resolve_pair(spec: str) -> tuple[str, str]:
@@ -87,7 +99,8 @@ class PairRun:
     model_a: str
     model_b: str
     dataset: str
-    layer_frac: float = DEFAULT_LAYER_FRAC
+    layer_a_spec: str = DEFAULT_LAYER_SPEC
+    layer_b_spec: str = DEFAULT_LAYER_SPEC
     n: int | None = 800
     synthetic: bool = False
     seed: int = SEED
@@ -99,10 +112,11 @@ class PairRun:
 
     def build(self, refresh: bool = False) -> "PairRun":
         a, b = paired(self.model_a, self.model_b, self.dataset, self.n,
-                      synthetic=self.synthetic, refresh=refresh)
+                      synthetic=self.synthetic, refresh=refresh,
+                      layer_a=(self.layer_a_spec,), layer_b=(self.layer_b_spec,))
         self.acts_a, self.acts_b = a, b
-        self.layer_a = _pick_layer(a, self.layer_frac)
-        self.layer_b = _pick_layer(b, self.layer_frac)
+        self.layer_a = resolve_layer(self.layer_a_spec, a.n_layers)
+        self.layer_b = resolve_layer(self.layer_b_spec, b.n_layers)
 
         items = load_items(self.dataset, self.n)
         by_id = {it.item_id: it for it in items}
@@ -222,13 +236,3 @@ class PairRun:
             return pair_kind(self.model_a, self.model_b)
         except KeyError:
             return "unknown"
-
-
-def _pick_layer(acts, frac: float) -> int:
-    """Nearest *cached* layer to the requested depth fraction.
-
-    The cache holds the whole sweep, so an arbitrary fraction snaps to the
-    closest extracted layer rather than triggering a new forward pass.
-    """
-    target = layer_index(acts.n_layers or max(acts.layers), frac)
-    return min(acts.layers, key=lambda l: abs(l - target))

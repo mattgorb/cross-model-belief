@@ -38,7 +38,7 @@ N = 400
 
 @pytest.fixture(scope="module")
 def run():
-    return PairRun(*PAIR, "truthfulqa", 0.6, N, synthetic=True).build()
+    return PairRun(*PAIR, "truthfulqa", "final", "final", N, synthetic=True).build()
 
 
 # -- plumbing ---------------------------------------------------------------
@@ -189,6 +189,33 @@ def test_aligned_features_keep_the_contrast_mean(run):
     X = run.aligned_features("test")
     d_a = run.acts_a.pos[run.layer_a].shape[1]
     assert X.shape[1] == 4 * d_a
+
+
+def test_layer_specs_resolve_per_model():
+    """'final' means each model's own last layer, not a shared index."""
+    from cmb.config import resolve_layer
+
+    assert resolve_layer("final", 32) == 32
+    assert resolve_layer("final", 64) == 64
+    assert resolve_layer("-3", 32) == 30
+    assert resolve_layer(0.6, 40) == 24
+    assert resolve_layer("24", 32) == 24
+
+
+def test_per_model_layer_override():
+    """--layer-a and --layer-b can pick different sites in the two models."""
+    r = PairRun(*PAIR, "boolq", "final", 0.5, 120, synthetic=True).build()
+    assert r.layer_a == r.acts_a.n_layers
+    assert r.layer_b == int(round(r.acts_b.n_layers * 0.5))
+    assert r.layer_a != r.layer_b
+
+
+def test_requested_layer_is_extracted_not_approximated():
+    """A cache miss on a layer must re-extract rather than snap to a neighbour."""
+    from cmb.extract import get_activations
+
+    acts = get_activations("qwen-7b", "rte", 60, synthetic=True, extra_layers=(7,))
+    assert 7 in acts.layers
 
 
 def test_verdict_modes_agree_on_shape(run):

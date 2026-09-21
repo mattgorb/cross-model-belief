@@ -16,9 +16,14 @@ RESULTS_DIR = Path(os.environ.get("CMB_RESULTS", ROOT / "results"))
 
 SEED = 0
 
-# DESIGN.md §4: default probe layer = 0.6 x depth; Exp 5 sweeps these.
-DEFAULT_LAYER_FRAC = 0.6
-LAYER_SWEEP = (0.4, 0.5, 0.6, 0.7, 0.8)
+# Default probe site = the FINAL layer. Mean-pooling the last hidden state is
+# exactly what an embedding API hands back, which is the setting the linear
+# alignment result was established in — so the default keeps this project on
+# the ground the prior work already covers. DESIGN.md §4's 0.6 x depth remains
+# available per model, and Exp 5 sweeps depth.
+DEFAULT_LAYER_SPEC = "final"
+DEFAULT_LAYER_FRAC = 1.0
+LAYER_SWEEP = (0.4, 0.5, 0.6, 0.7, 0.8, 1.0)
 
 # fp16 always for extraction — DESIGN.md §4/§9 forbids 4-bit here, quantization
 # perturbs exactly the thing the probe reads.
@@ -73,6 +78,35 @@ def layer_index(n_layers: int, frac: float) -> int:
     """Hidden-state index for a depth fraction, clamped into range.
 
     Index 0 of `hidden_states` is the embedding output, so valid probe layers
-    are 1..n_layers.
+    are 1..n_layers; `frac=1.0` is the final layer.
     """
     return max(1, min(n_layers, int(round(n_layers * frac))))
+
+
+def parse_layer_spec(spec) -> float | int:
+    """Parse a per-model layer argument.
+
+    Accepts `"final"` (the default), a depth fraction like `0.6`, a negative
+    index like `-1` or `-3` counting back from the final layer, or an absolute
+    hidden-state index like `24`. Fractions are resolved against each model's
+    own depth, so one flag means the same *relative* site in models of
+    different sizes; absolute indices do not, which is usually what you want
+    only when the two models have the same depth.
+    """
+    if isinstance(spec, (int, float)):
+        return spec
+    s = str(spec).strip().lower()
+    if s in ("final", "last", "-1"):
+        return 1.0
+    if s.startswith("-"):
+        return int(s)
+    v = float(s)
+    return v if 0 < v <= 1.0 and "." in s else int(v)
+
+
+def resolve_layer(spec, n_layers: int) -> int:
+    """Turn a layer spec into a concrete hidden-state index for one model."""
+    spec = parse_layer_spec(spec)
+    if isinstance(spec, int):
+        return n_layers + 1 + spec if spec < 0 else max(1, min(n_layers, spec))
+    return layer_index(n_layers, spec)

@@ -17,14 +17,16 @@ boundable) or stays put (a ceiling, irreducible).
 
 from __future__ import annotations
 
-from common import PairRun, base_parser, header, resolve_pair, write_result
+from common import (PairRun, base_parser, header, layer_specs,
+                    resolve_pair, write_result)
 
 from cmb import metrics
 from cmb.config import PAIRS
 
 
 def run_pair(a, b, args):
-    run = PairRun(a, b, args.dataset, args.layer_frac, args.n,
+    la, lb = layer_specs(args)
+    run = PairRun(a, b, args.dataset, la, lb, args.n,
                   args.synthetic, args.seed).build(refresh=args.refresh)
     v1, v2, gt = run.verdicts(args.mode)
     table = metrics.eight_cell(v1, v2, gt)

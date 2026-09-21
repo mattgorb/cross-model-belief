@@ -23,20 +23,23 @@ from gate_a_probe_truth import gate_a_for
 
 def main() -> int:
     ap = base_parser(__doc__.splitlines()[0])
-    ap.add_argument("--fracs", default=",".join(str(f) for f in LAYER_SWEEP))
+    ap.add_argument("--sweep", default=",".join(str(f) for f in LAYER_SWEEP),
+                    help="comma-separated layer specs to sweep; applied to both "
+                         "models (fractions keep the site comparable across "
+                         "models of different depth)")
     ap.add_argument("--C", type=float, default=0.1)
     ap.add_argument("--mode", default="native",
                     choices=["native", "a_to_b", "b_to_a"])
     args = ap.parse_args()
     a, b = resolve_pair(args.pair)
-    fracs = [float(f) for f in args.fracs.split(",")]
+    specs = [s.strip() for s in args.sweep.split(",") if s.strip()]
 
     header(f"EXP 5 — layer sweep   [{a} | {b}]  {args.dataset}")
-    print(f"  {'frac':>6} {'layers':>10} {'gateA edge':>12} {'transferAUROC':>14}"
+    print(f"  {'layer':>8} {'idx':>10} {'gateA edge':>12} {'transferAUROC':>14}"
           f" {'row2':>8} {'sep AUROC':>10}")
     rows = []
-    for frac in fracs:
-        run = PairRun(a, b, args.dataset, frac, args.n, args.synthetic,
+    for spec in specs:
+        run = PairRun(a, b, args.dataset, spec, spec, args.n, args.synthetic,
                       args.seed).build(refresh=args.refresh)
         gt = run.labels_test
         ga = gate_a_for(a, run.native_belief("a"), run.acts_a.p_yes[run.te], gt, 0.5)
@@ -50,10 +53,10 @@ def main() -> int:
         sep, _ = fit_and_score(X_tr, y_tr, X_te, y_te, args.C, args.seed)
 
         edge = min(ga["edge_slice"], gb["edge_slice"])
-        print(f"  {frac:>6.2f} {run.layer_a:>4}/{run.layer_b:<5}"
+        print(f"  {spec:>8} {run.layer_a:>4}/{run.layer_b:<5}"
               f" {edge:>+12.3f} {transfer:>14.3f}"
               f" {table.row2_rate:>8.3f} {sep:>10.3f}")
-        rows.append({"frac": frac, "layers": [run.layer_a, run.layer_b],
+        rows.append({"layer": spec, "layers": [run.layer_a, run.layer_b],
                      "gate_a_edge_min": edge, "transfer_auroc": transfer,
                      "row2_rate": table.row2_rate, "row2_count": table.row2_count,
                      "separability_auroc": sep})
@@ -61,12 +64,12 @@ def main() -> int:
     best_probe = max(rows, key=lambda r: r["gate_a_edge_min"])
     valid = [r for r in rows if not np.isnan(r["separability_auroc"])]
     best_sep = max(valid, key=lambda r: r["separability_auroc"]) if valid else None
-    print(f"\n  best Gate A depth      {best_probe['frac']:.2f}"
+    print(f"\n  best Gate A layer       {best_probe['layer']}"
           f"   (edge {best_probe['gate_a_edge_min']:+.3f})")
     if best_sep:
-        print(f"  best separability depth {best_sep['frac']:.2f}"
+        print(f"  best separability layer {best_sep['layer']}"
               f"   (AUROC {best_sep['separability_auroc']:.3f})")
-        if abs(best_sep["frac"] - best_probe["frac"]) > 0.15:
+        if best_sep["layers"] != best_probe["layers"]:
             print("  NOTE: belief and false-agreement structure peak at different "
                   "depths — report both, and do not tune one at the other's layer.")
 

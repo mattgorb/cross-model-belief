@@ -17,7 +17,8 @@ import json
 
 import numpy as np
 
-from common import PairRun, base_parser, header, resolve_pair, write_result
+from common import (PairRun, base_parser, header, layer_specs,
+                    resolve_pair, write_result)
 
 from cmb import metrics
 from cmb.config import RESULTS_DIR
@@ -28,7 +29,8 @@ def main() -> int:
     args = ap.parse_args()
     a, b = resolve_pair(args.pair)
 
-    run = PairRun(a, b, args.dataset, args.layer_frac, args.n,
+    la, lb = layer_specs(args)
+    run = PairRun(a, b, args.dataset, la, lb, args.n,
                   args.synthetic, args.seed).build(refresh=args.refresh)
     ids = np.array(run.acts_a.item_ids)[run.te]
 

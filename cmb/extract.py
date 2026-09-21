@@ -11,19 +11,26 @@ import sys
 import numpy as np
 
 from .cache import ActivationSet, cache_path, load, save
-from .config import DEFAULT_LAYER_FRAC, LAYER_SWEEP, layer_index
+from .config import DEFAULT_LAYER_FRAC, LAYER_SWEEP, layer_index, resolve_layer
 from .data import Item, load_items
 from .models import load_backend
 
 
-def _layers_for(backend, fracs) -> list[int]:
+def _layers_for(backend, fracs, extra=()) -> list[int]:
+    """Concrete hidden-state indices to extract for one model.
+
+    `fracs` are depth fractions (the standing sweep); `extra` are per-model
+    layer specs from the CLI, resolved against this model's own depth. All of
+    them come out of the same forward pass, so asking for more is nearly free.
+    """
     n = backend.n_layers
-    return sorted({layer_index(n, f) for f in fracs})
+    return sorted({layer_index(n, f) for f in fracs}
+                  | {resolve_layer(e, n) for e in extra})
 
 
 def extract(model: str, dataset: str, n: int | None = None,
             synthetic: bool = False, fracs=None, backend=None,
-            progress: bool = True) -> ActivationSet:
+            progress: bool = True, extra_layers=()) -> ActivationSet:
     """Forward-pass a dataset through a model and collect contrast activations."""
     if synthetic:
         from .synthetic_data import install
@@ -32,7 +39,7 @@ def extract(model: str, dataset: str, n: int | None = None,
     backend = backend or load_backend(model, synthetic=synthetic)
     fracs = tuple(fracs) if fracs else tuple(sorted(set(LAYER_SWEEP) |
                                                    {DEFAULT_LAYER_FRAC}))
-    layers = _layers_for(backend, fracs)
+    layers = _layers_for(backend, fracs, extra_layers)
 
     pos = {l: [] for l in layers}
     neg = {l: [] for l in layers}
@@ -60,8 +67,13 @@ def extract(model: str, dataset: str, n: int | None = None,
 
 def get_activations(model: str, dataset: str, n: int | None = None,
                     synthetic: bool = False, refresh: bool = False,
-                    **kw) -> ActivationSet:
-    """Cached `extract`. Synthetic runs get their own cache namespace."""
+                    extra_layers=(), **kw) -> ActivationSet:
+    """Cached `extract`. Synthetic runs get their own cache namespace.
+
+    A cache hit that lacks a requested layer triggers re-extraction: silently
+    probing the nearest cached layer instead would make a `--layer-a` flag mean
+    something other than what it says.
+    """
     key = f"synthetic-{model}" if synthetic else model
     path = cache_path(key, dataset, n)
     if synthetic:
@@ -69,21 +81,30 @@ def get_activations(model: str, dataset: str, n: int | None = None,
         install()
     if path.exists() and not refresh:
         acts = load(path)
-        wanted = [it.item_id for it in load_items(dataset, n)]
-        return acts.reorder_to(wanted)
-    acts = extract(model, dataset, n=n, synthetic=synthetic, **kw)
+        need = {resolve_layer(e, acts.n_layers) for e in extra_layers}
+        if need <= set(acts.layers):
+            wanted = [it.item_id for it in load_items(dataset, n)]
+            return acts.reorder_to(wanted)
+        print(f"  [{model}/{dataset}] cache lacks layer(s) "
+              f"{sorted(need - set(acts.layers))}; re-extracting")
+    acts = extract(model, dataset, n=n, synthetic=synthetic,
+                   extra_layers=extra_layers, **kw)
     acts.model = key
     save(acts, path)
     return acts
 
 
 def paired(model_a: str, model_b: str, dataset: str, n: int | None = None,
-           synthetic: bool = False, **kw):
+           synthetic: bool = False, layer_a=(), layer_b=(), **kw):
     """Two models' activations over the *same* items, in the same order.
 
-    Paired order is a precondition for fitting the alignment map at all.
+    Paired order is a precondition for fitting the alignment map at all. The
+    two models take separate layer specs, since the probe site is a per-model
+    choice — models of different depth have no shared layer numbering.
     """
-    a = get_activations(model_a, dataset, n, synthetic=synthetic, **kw)
-    b = get_activations(model_b, dataset, n, synthetic=synthetic, **kw)
+    a = get_activations(model_a, dataset, n, synthetic=synthetic,
+                        extra_layers=layer_a, **kw)
+    b = get_activations(model_b, dataset, n, synthetic=synthetic,
+                        extra_layers=layer_b, **kw)
     ids = [i for i in a.item_ids if i in set(b.item_ids)]
     return a.reorder_to(ids), b.reorder_to(ids)
