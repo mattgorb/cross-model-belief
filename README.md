@@ -20,7 +20,16 @@ it implements.
 pip install -r requirements.txt
 scripts/smoke.sh                 # whole pipeline on synthetic data, ~1 min, no GPU
 scripts/run_all.sh --synthetic   # same, with all output
-scripts/run_all.sh               # the real thing (downloads models, needs GPUs)
+```
+
+For a real run — GPU box, then save the vectors once, then iterate on the
+analysis for free — follow [`docs/RUNBOOK.md`](docs/RUNBOOK.md):
+
+```bash
+export CMB_CACHE=/mnt/data/activations
+scripts/extract.py --models qwen-7b,llama-8b --datasets truthfulqa --n 2000
+scripts/extract.py --list
+scripts/run_all.sh --pair cross-family --dataset truthfulqa
 ```
 
 `--synthetic` swaps in a generative activation model (`cmb/synthetic.py`) whose
@@ -56,7 +65,8 @@ experiments/
   exp4_generalization_matrix.py   5x5 leave-one-dataset-out + held-out model pair
   exp5_layer_sweep.py     depth sweep of gates, Row 2, separability
 tests/                    pytest, all synthetic
-scripts/                  run_all.sh, smoke.sh
+scripts/                  extract.py (warm the cache), run_all.sh, smoke.sh
+docs/RUNBOOK.md           infra -> extraction -> experiments, end to end
 reference/                the original single-file scripts this was refactored from
 infra/                    Terraform for spot GPU instances
 results/                  *.json per experiment + your RESULTS.md
