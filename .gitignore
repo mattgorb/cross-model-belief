@@ -1,0 +1,28 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# activations / model cache — large, regenerated
+activations_cache/*
+!activations_cache/.gitkeep
+*.npy
+*.npz
+*.parquet
+hf_cache/
+
+# results artifacts (keep RESULTS.md, ignore heavy figures/pickles if desired)
+results/*.pkl
+results/*.pt
+
+# terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/.terraform.lock.hcl
+*.tfvars
+
+# os
+.DS_Store
