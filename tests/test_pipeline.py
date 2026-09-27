@@ -25,7 +25,7 @@ os.environ.setdefault("CMB_CACHE", str(Path(_TMP) / "cache"))
 os.environ.setdefault("CMB_RESULTS", str(Path(_TMP) / "results"))
 
 from cmb import align, metrics, probes              # noqa: E402
-from cmb.cache import cache_path, load, save        # noqa: E402
+from cmb.cache import ActivationSet, cache_path, load, save  # noqa: E402
 from cmb.data import split_items                    # noqa: E402
 from cmb.extract import get_activations             # noqa: E402
 from cmb.probes import CCSProbe, LinearDirection    # noqa: E402
@@ -348,3 +348,37 @@ def test_probe_kind_reaches_the_pipeline():
     assert isinstance(r.probe_a, probes.SupervisedBeliefProbe)
     v1, v2, gt = r.verdicts("native")
     assert set(np.unique(v1)) <= {0, 1}
+
+
+# --- pooling (mean vs last token) -------------------------------------------
+
+
+def test_cache_carries_both_poolings():
+    """Both come out of one forward pass, so both must survive a save/load."""
+    acts = get_activations("qwen3-8b", "rte", 80, synthetic=True)
+    assert acts.pooling == "mean"
+    assert set(acts.pos_alt) == set(acts.pos), "last-token pooling missing"
+    swapped = acts.with_pooling("last")
+    assert swapped.pooling == "last"
+    layer = max(acts.layers)
+    assert not np.allclose(swapped.pos[layer], acts.pos[layer])
+    # swapping twice is the identity
+    assert np.allclose(swapped.with_pooling("mean").pos[layer], acts.pos[layer])
+
+
+def test_pooling_reaches_the_pipeline_and_changes_the_features():
+    runs = {p: PairRun(*PAIR, "truthfulqa", "final", "final", 200,
+                       synthetic=True, pooling=p).build() for p in ("mean", "last")}
+    fm, fl = (runs[p].aligned_features() for p in ("mean", "last"))
+    assert fm.shape == fl.shape
+    assert not np.allclose(fm, fl)
+    for r in runs.values():                     # both must still be probeable
+        assert metrics.auroc(r.native_belief("a"), r.labels_test) > 0.5
+
+
+def test_pooling_switch_refuses_a_cache_that_lacks_it():
+    acts = get_activations("qwen3-8b", "rte", 80, synthetic=True)
+    stripped = ActivationSet(acts.model, acts.dataset, acts.item_ids, acts.labels,
+                             acts.p_yes, acts.pos, acts.neg, acts.n_layers)
+    with pytest.raises(RuntimeError, match="only 'mean' pooling"):
+        stripped.with_pooling("last")

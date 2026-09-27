@@ -144,6 +144,13 @@ labeled ones are baselines that bound what supervision would buy; they never
 substitute for CCS, since only CCS answers whether belief is recoverable without
 labels.
 
+**Both poolings are cached, and the choice is made afterwards.** One forward
+pass yields a mean over the prompt *and* the final (Yes/No) token, so `--pooling
+mean|last` is a free switch rather than another GPU rental. Mean is the default
+because it is what the linear-alignment / embedding-API setting assumes; `last`
+is what the probing literature (Marks & Tegmark) reads. Files written before
+this carry only the mean and must be re-extracted with `--refresh` to get both.
+
 **Tokenizer differences need no special handling on the default path.** Each
 claim becomes one pooled vector per model, so the map is fitted on item-level
 pairs exactly as in the embedding-model setting — token counts never enter.

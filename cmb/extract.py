@@ -43,6 +43,10 @@ def extract(model: str, dataset: str, n: int | None = None,
 
     pos = {l: [] for l in layers}
     neg = {l: [] for l in layers}
+    # The alternate pooling (last token), when the backend provides it. One
+    # forward pass gives both, so there is never a reason not to keep it.
+    pos_alt = {l: [] for l in layers}
+    neg_alt = {l: [] for l in layers}
     p_yes, labels = [], []
     for i, it in enumerate(items):
         if hasattr(backend, "features_for_item"):
@@ -52,6 +56,9 @@ def extract(model: str, dataset: str, n: int | None = None,
         for l in layers:
             pos[l].append(f.pos[l])
             neg[l].append(f.neg[l])
+            if getattr(f, "pos_last", None):
+                pos_alt[l].append(f.pos_last[l])
+                neg_alt[l].append(f.neg_last[l])
         p_yes.append(f.p_yes)
         labels.append(it.label)
         if progress and i % 50 == 0:
@@ -62,7 +69,10 @@ def extract(model: str, dataset: str, n: int | None = None,
         labels=np.array(labels), p_yes=np.array(p_yes, dtype=float),
         pos={l: np.stack(v) for l, v in pos.items()},
         neg={l: np.stack(v) for l, v in neg.items()},
-        n_layers=backend.n_layers)
+        n_layers=backend.n_layers,
+        pos_alt={l: np.stack(v) for l, v in pos_alt.items() if v},
+        neg_alt={l: np.stack(v) for l, v in neg_alt.items() if v},
+        pooling="mean")
 
 
 def get_activations(model: str, dataset: str, n: int | None = None,

@@ -126,6 +126,14 @@ of them can kill the project before the expensive passes.
 Probe types run on the same cached activations at no extra cost: `--probe ccs`
 (unsupervised, the case that matters), `mass-mean`, `lr`.
 
+## Pooling
+
+One forward pass caches **both** a mean over the prompt and the final (Yes/No)
+token, so `--pooling mean|last` costs nothing to switch later. Mean is the
+default (the alignment setting); `last` is the probing literature's convention.
+This is deliberate: the choice is not recoverable from a cache that stored only
+one, and re-deriving it means renting a GPU again.
+
 ## Cost and time
 
 - Extraction is the only expensive phase, and it is designed to happen **once**:

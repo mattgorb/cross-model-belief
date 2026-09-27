@@ -40,6 +40,11 @@ def base_parser(description: str) -> argparse.ArgumentParser:
                    help="override the layer for model A (same formats)")
     p.add_argument("--layer-b", default=None,
                    help="override the layer for model B (same formats)")
+    p.add_argument("--pooling", default="mean", choices=["mean", "last"],
+                   help="which cached pooling to read: 'mean' over the whole "
+                        "prompt (the alignment setting) or 'last', the Yes/No "
+                        "token (what the probing literature reads). Both are in "
+                        "the cache, so switching is free.")
     p.add_argument("--probe", default="ccs", choices=probes.PROBE_KINDS,
                    help="belief probe: 'ccs' (unsupervised, the case that "
                         "matters) or the labeled baselines 'mass-mean' / 'lr'")
@@ -73,7 +78,8 @@ def make_run(a: str, b: str, args, dataset: str | None = None,
     la, lb = layers if layers is not None else layer_specs(args)
     return PairRun(a, b, dataset or args.dataset, la, lb, args.n,
                    args.synthetic, args.seed,
-                   probe_kind=getattr(args, "probe", "ccs"))
+                   probe_kind=getattr(args, "probe", "ccs"),
+                   pooling=getattr(args, "pooling", "mean"))
 
 
 def write_result(name: str, payload: dict, tag: str = "") -> Path:
@@ -122,6 +128,7 @@ class PairRun:
     seed: int = SEED
     test_frac: float = TEST_FRAC
     probe_kind: str = "ccs"
+    pooling: str = "mean"
 
     # filled by build()
     layer_a: int = field(init=False, default=0)
@@ -131,7 +138,10 @@ class PairRun:
         a, b = paired(self.model_a, self.model_b, self.dataset, self.n,
                       synthetic=self.synthetic, refresh=refresh,
                       layer_a=(self.layer_a_spec,), layer_b=(self.layer_b_spec,))
-        self.acts_a, self.acts_b = a, b
+        # Pooling is a view on the same cache, applied once here so every
+        # downstream reader sees one convention.
+        self.acts_a = a.with_pooling(self.pooling)
+        self.acts_b = b.with_pooling(self.pooling)
         self.layer_a = resolve_layer(self.layer_a_spec, a.n_layers)
         self.layer_b = resolve_layer(self.layer_b_spec, b.n_layers)
 

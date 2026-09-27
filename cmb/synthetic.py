@@ -124,18 +124,27 @@ class SyntheticModel:
         # Deeper layers carry the truth axis more strongly; a layer sweep should
         # see a curve rather than a flat line.
         out_pos, out_neg = {}, {}
+        # The last-token stand-in: the same latents with a sharper truth axis and
+        # less content, which is roughly how the Yes/No position differs from a
+        # mean over the whole prompt. It exists so the pooling switch is exercised
+        # end to end without a GPU; it says nothing about real models.
+        last_pos, last_neg = {}, {}
         for li in layers:
             scale = 0.5 + 1.5 * (li / max(self.n_layers, 1))
             g = _rng("layer", self.key, item_id, str(li))
             out_pos[li] = embed(True) * scale + g.normal(size=self.dim) * 0.05
             out_neg[li] = embed(False) * scale + g.normal(size=self.dim) * 0.05
+            t = _rng("lasttok", self.key, item_id, str(li))
+            last_pos[li] = out_pos[li] * 1.2 + t.normal(size=self.dim) * 0.08
+            last_neg[li] = out_neg[li] * 1.2 + t.normal(size=self.dim) * 0.08
 
         # Output-space belief: mostly prominence, only weakly truth, so the
         # logprob baseline is informative but should lose to the probe.
         logit = 1.0 * (prominence - 0.45) + 1.8 * (belief - 0.5)
         logit += _rng("pyes", self.key, item_id).normal() * 0.9
         p_yes = float(1 / (1 + np.exp(-logit)))
-        return ItemFeatures(pos=out_pos, neg=out_neg, p_yes=p_yes)
+        return ItemFeatures(pos=out_pos, neg=out_neg, p_yes=p_yes,
+                            pos_last=last_pos, neg_last=last_neg)
 
     def features(self, claim: str, layers: Sequence[int]) -> ItemFeatures:
         from .data import Item

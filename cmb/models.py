@@ -11,7 +11,7 @@ it (DESIGN.md §4).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, Sequence
 
 import numpy as np
@@ -23,10 +23,19 @@ from .tokalign import TokenStates
 
 @dataclass
 class ItemFeatures:
-    """Per-item output of a backend."""
-    pos: dict[int, np.ndarray]   # layer index -> mean-pooled hidden state
+    """Per-item output of a backend.
+
+    Both poolings come out of the *same* forward pass, so caching both costs
+    disk and no GPU time. That matters because the choice is not recoverable
+    later: mean pooling is what the linear-alignment / embedding-API setting
+    assumes, while the probing literature (Marks & Tegmark) reads the final
+    token. Extracting once and deciding afterwards is the only cheap order.
+    """
+    pos: dict[int, np.ndarray]        # layer -> mean-pooled hidden state
     neg: dict[int, np.ndarray]
-    p_yes: float                 # output-space P(claim is true), the baseline
+    p_yes: float                      # output-space P(claim is true), the baseline
+    pos_last: dict[int, np.ndarray] = field(default_factory=dict)   # final token
+    neg_last: dict[int, np.ndarray] = field(default_factory=dict)
 
 
 class Backend(Protocol):
@@ -111,18 +120,20 @@ class HFModel:
     def default_layer(self, frac: float = DEFAULT_LAYER_FRAC) -> int:
         return layer_index(self.n_layers, frac)
 
-    def _hidden(self, text: str, layers: Sequence[int]) -> dict[int, np.ndarray]:
+    def _hidden(self, text: str, layers: Sequence[int]):
+        """(mean-pooled, last-token) hidden states per layer, one forward pass."""
         torch = self.torch
         with torch.no_grad():
             ids = self.tok(text, return_tensors="pt", truncation=True,
                            max_length=MAX_LENGTH).to(self.lm.device)
             out = self.lm(**ids)
             mask = ids["attention_mask"][0].bool()
-            res = {}
+            mean, last = {}, {}
             for li in layers:
                 h = out.hidden_states[li][0][mask]     # [seq, d], real tokens only
-                res[li] = h.mean(0).float().cpu().numpy()
-        return res
+                mean[li] = h.mean(0).float().cpu().numpy()
+                last[li] = h[-1].float().cpu().numpy()  # the Yes/No token
+        return mean, last
 
     def _p_yes(self, claim: str) -> float:
         """Output-space belief: softmax over the ' Yes' / ' No' continuations."""
@@ -168,9 +179,10 @@ class HFModel:
 
     def features(self, claim: str, layers: Sequence[int]) -> ItemFeatures:
         pos_text, neg_text = contrast_pair(claim)
-        return ItemFeatures(pos=self._hidden(pos_text, layers),
-                            neg=self._hidden(neg_text, layers),
-                            p_yes=self._p_yes(claim))
+        pos_mean, pos_last = self._hidden(pos_text, layers)
+        neg_mean, neg_last = self._hidden(neg_text, layers)
+        return ItemFeatures(pos=pos_mean, neg=neg_mean, p_yes=self._p_yes(claim),
+                            pos_last=pos_last, neg_last=neg_last)
 
 
 def load_backend(key: str, synthetic: bool = False, **kw) -> Backend:
