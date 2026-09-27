@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import CACHE_DIR, SEED
+from .config import CACHE_DIR, DATASET_CAPS, SEED
 
 MANIFEST_DIR = CACHE_DIR / "manifests"
 
@@ -33,13 +33,50 @@ class Item:
 
 
 def _finalize(items: list[Item], n: int | None, seed: int = SEED) -> list[Item]:
-    """Deterministic shuffle + truncate, balanced-ish on the label."""
+    """Deterministic shuffle, then truncate to an exactly label-balanced subset.
+
+    The cap is whichever of `n` and the dataset's `DATASET_CAPS` entry is
+    smaller. Truncation is stratified rather than a head of the shuffle: the
+    headline metric is conditioned on the GT-false items, so an unbalanced draw
+    costs precision on exactly the half that matters.
+
+    Grouped items (a TruthfulQA true/false pair, an MMLU true/chosen-wrong pair)
+    are kept together, since `split_items` splits on the group and a half-pair
+    would leak across the train/test boundary.
+    """
     rng = np.random.default_rng(seed)
-    idx = rng.permutation(len(items))
-    items = [items[i] for i in idx]
-    if n is not None:
-        items = items[:n]
-    return items
+    items = [items[i] for i in rng.permutation(len(items))]
+
+    cap = DATASET_CAPS.get(items[0].dataset) if items else None
+    limit = min([v for v in (n, cap) if v is not None], default=None)
+    if limit is None or limit >= len(items):
+        return items
+
+    groups: dict[str, list[Item]] = {}
+    for it in items:
+        groups.setdefault(it.group or it.item_id, []).append(it)
+
+    # A group is "true", "false", or mixed (a contrast pair); balance the
+    # single-label groups against each other and take mixed ones as they come.
+    buckets: dict[str, list[list[Item]]] = {"1": [], "0": [], "mixed": []}
+    for g in groups.values():
+        labs = {it.label for it in g}
+        buckets["mixed" if len(labs) > 1 else str(labs.pop())].append(g)
+
+    out: list[Item] = []
+    for g in buckets["mixed"]:                      # pairs are balanced already
+        if len(out) + len(g) > limit:
+            break
+        out += g
+    t, f = buckets["1"], buckets["0"]
+    while len(out) < limit and (t or f):
+        # alternate, so a shortfall in one label does not skew the result
+        src = t if (len(t) >= len(f) and t) else (f or t)
+        g = src.pop()
+        if len(out) + len(g) > limit:
+            break
+        out += g
+    return out
 
 
 # ---------------------------------------------------------------------------

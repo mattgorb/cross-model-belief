@@ -130,6 +130,13 @@ RESEARCH_PAIRS = ("same-family", "cross-family", "cross-era", "held-out")
 DATASETS = ("geometry_of_truth", "truthfulqa", "boolq", "imdb", "rte", "mmlu")
 MATRIX_DATASETS = ("geometry_of_truth", "truthfulqa", "boolq", "imdb", "rte")
 
+# Per-dataset ceiling, applied even under `--n all`. IMDB's test split is 25k
+# items, an order of magnitude more than anything else here, and it exists only
+# as the sentiment-confound extreme for one cell of the Exp 4 matrix — so it
+# would dominate the extraction budget while contributing one number. The cap is
+# label-balanced, not a head of the shuffle.
+DATASET_CAPS = {"imdb": 5000}
+
 # Test-split fraction used everywhere a train/test split is needed.
 TEST_FRAC = 0.4
 # "Confident slice" for Gate A = top this fraction of items by output confidence.
