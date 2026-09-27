@@ -17,7 +17,7 @@ from typing import Protocol, Sequence
 import numpy as np
 
 from .config import DEFAULT_LAYER_FRAC, MAX_LENGTH, MODELS, layer_index
-from .prompts import claim_text, contrast_pair
+from .prompts import SUFFIX, claim_text, contrast_pair
 from .tokalign import TokenStates
 
 
@@ -138,7 +138,11 @@ class HFModel:
     def _p_yes(self, claim: str) -> float:
         """Output-space belief: softmax over the ' Yes' / ' No' continuations."""
         torch = self.torch
-        prefix = f"{claim_text(claim)}\nIs this claim true?"
+        # Same prefix the contrast pair uses, and the same clipping, so the
+        # out-loud number and the probe are read off the same prompt.
+        prefix = f"{claim_text(claim)}{SUFFIX}"
+        if len(self.tok(prefix + " Yes")["input_ids"]) > MAX_LENGTH:
+            prefix = f"{self._fit_claim(claim)}{SUFFIX}"
         lps = []
         with torch.no_grad():
             for cont in (" Yes", " No"):
@@ -177,8 +181,29 @@ class HFModel:
         return TokenStates(states=states, starts=offsets[idx, 0],
                            ends=offsets[idx, 1])
 
+    def _fit_claim(self, claim: str) -> str:
+        """Clip the claim so the question and the verdict token always survive.
+
+        `truncation=True` cuts from the right, so a claim long enough to fill the
+        window took the "Is this claim true? Yes/No" suffix with it — leaving the
+        two halves of the contrast pair *identical*. That is an empty pair, not an
+        error, and it would have been invisible in the results. Clipping the claim
+        instead keeps the suffix, and the assertion below keeps it honest.
+        """
+        room = MAX_LENGTH - len(self.tok(SUFFIX + " Yes")["input_ids"]) - 8
+        ids = self.tok(claim_text(claim), truncation=True, max_length=room)["input_ids"]
+        return self.tok.decode(ids, skip_special_tokens=True)
+
     def features(self, claim: str, layers: Sequence[int]) -> ItemFeatures:
         pos_text, neg_text = contrast_pair(claim)
+        if len(self.tok(pos_text)["input_ids"]) > MAX_LENGTH:
+            # Re-render from a clipped claim rather than let the window eat the
+            # verdict token.
+            pos_text, neg_text = contrast_pair(self._fit_claim(claim))
+        assert (self.tok(pos_text)["input_ids"][-1]
+                != self.tok(neg_text)["input_ids"][-1]), (
+            f"contrast pair collapsed for a claim of {len(claim)} chars — the "
+            f"two halves end on the same token, so there is nothing to contrast")
         pos_mean, pos_last = self._hidden(pos_text, layers)
         neg_mean, neg_last = self._hidden(neg_text, layers)
         return ItemFeatures(pos=pos_mean, neg=neg_mean, p_yes=self._p_yes(claim),

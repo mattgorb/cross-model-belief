@@ -382,3 +382,44 @@ def test_pooling_switch_refuses_a_cache_that_lacks_it():
                              acts.p_yes, acts.pos, acts.neg, acts.n_layers)
     with pytest.raises(RuntimeError, match="only 'mean' pooling"):
         stripped.with_pooling("last")
+
+
+# --- the contrast pair's final token ----------------------------------------
+
+
+def test_contrast_pair_ends_on_the_verdict_not_punctuation():
+    """Last-token pooling reads the final token, so it must BE the verdict."""
+    from cmb.prompts import contrast_pair
+
+    pos, neg = contrast_pair("The city of Krasnodar is in Russia")
+    assert pos.endswith(" Yes") and neg.endswith(" No")
+    assert not pos.endswith(".") and not neg.endswith(".")
+    # identical up to that token — nothing else may differ
+    assert pos[:-4] == neg[:-3]
+
+
+def test_long_claims_keep_the_question_and_verdict():
+    """A claim long enough to fill the window must not eat the suffix.
+
+    Right-truncation used to drop "Is this claim true? Yes/No" for long items,
+    leaving the two halves identical — an empty contrast pair that no metric
+    would have flagged.
+    """
+    pytest.importorskip("transformers")
+    from transformers import AutoTokenizer
+
+    from cmb.config import MAX_LENGTH
+    from cmb.models import HFModel
+    from cmb.prompts import contrast_pair
+
+    tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-1.7B")
+    fake = HFModel.__new__(HFModel)          # tokenizer only; no weights loaded
+    fake.tok = tok
+
+    long_claim = "The city of Krasnodar is in Russia. " * 400   # ~3600 tokens
+    pos, neg = contrast_pair(fake._fit_claim(long_claim))
+    ids_p, ids_n = tok(pos)["input_ids"], tok(neg)["input_ids"]
+    assert len(ids_p) <= MAX_LENGTH
+    assert tok.decode(ids_p[-1:]).strip() == "Yes"
+    assert tok.decode(ids_n[-1:]).strip() == "No"
+    assert ids_p[-1] != ids_n[-1]
