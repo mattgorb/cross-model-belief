@@ -81,6 +81,11 @@ MODELS = {
                   reasoning=True, multimodal=True),
         ModelSpec("gemma4-12b-base", "google/gemma-4-12B", "gemma", 48,
                   base=True, multimodal=True),
+        # -- OLMo 3: a fourth family, and the only one whose pretraining corpus
+        # is public. That makes it the one pair where "shared training data
+        # drives the error correlation" is checkable rather than assumed.
+        ModelSpec("olmo3-7b", "allenai/Olmo-3-7B-Instruct", "olmo", 32,
+                  reasoning=True),
         # -- Llama: still the newest *dense* small Llama (Llama 4 is MoE and has
         # no 8B dense). Non-reasoning, which makes it useful rather than stale:
         # it is the only pre-reasoning-era point on the board.
