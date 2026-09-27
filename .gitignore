@@ -17,12 +17,22 @@ hf_cache/
 results/*.pkl
 results/*.pt
 
+# latex build artifacts (keep the sources, keep the pdf out of git)
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.pdf
+paper/*.synctex.gz
+
 # terraform
 infra/.terraform/
 infra/*.tfstate
 infra/*.tfstate.*
 infra/.terraform.lock.hcl
-*.tfvars
+infra/terraform.tfvars
 
 # os
 .DS_Store

@@ -5,6 +5,14 @@ torch>=2.2
 pytest>=8.0
 
 # Real model runs (not needed with --synthetic).
+#
+# transformers must be new enough to know the architectures in cmb/config.py:
+# Qwen3.8 is `qwen3_5` (Qwen3_5ForConditionalGeneration) and Gemma 4 is
+# `gemma4_unified` (Gemma4UnifiedForConditionalGeneration). An older release
+# fails at load with "does not recognize this architecture" — install the newest
+# transformers rather than pinning a floor that will age badly, and run
+# `python3 -c "import transformers; print(transformers.__version__)"` on the box
+# before starting an extraction pass.
 transformers>=4.44
 datasets>=2.20
 accelerate>=0.30

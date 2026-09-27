@@ -1,0 +1,92 @@
+% The Shared Geometry of Belief — main document.
+%
+% Build:  make -C paper        (pdflatex -> bibtex -> pdflatex x2)
+%
+% Section files are kept separate so each can be drafted independently:
+%   abstract.tex  the abstract (title/authors live here in \paperabstract)
+%   theory.tex    Section 2, the algebra of false agreement (DESIGN.md §2.4)
+% Empirical sections are written against the experiment scripts and are added
+% as they produce numbers; see paper/PLAN.md for the section plan.
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xcolor}   % only for the [Results sentence.] placeholder in abstract.tex
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}[proposition]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[proposition]{Remark}
+
+% Notation fixed once, so the theory section and the code agree.
+\newcommand{\FA}{\mathrm{FA}}                 % false-agreement rate
+\newcommand{\Neff}{N_{\mathrm{eff}}}          % effective independent overseers
+\newcommand{\rhobar}{\bar{\rho}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\eps}{\varepsilon}
+
+\title{The Shared Geometry of Belief:\\
+       Limits of Cross-Model Agreement in Scalable Oversight}
+\author{Matthew Gorbett}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+% TODO. The argument, in order:
+%   1. Overseeing a model with a model assumes the two fail differently.
+%   2. Output-level overseers are blind twice over: to what is not expressed,
+%      and to shared error. Probes fix the first; this paper tests the second.
+%   3. False agreement is the quantity that bounds the method, and it is
+%      governed by error correlation, not by individual accuracy (Sec.~\ref{sec:theory}).
+%   4. Contributions, mirroring DESIGN.md §3.
+
+\input{theory}
+
+\section{Method}
+\label{sec:method}
+% TODO. Probes (CCS, mass-mean, LR), the linear alignment map, the gates.
+% Mirrors DESIGN.md §2 and §4; cite the scripts in experiments/.
+
+\section{Experiments}
+\label{sec:experiments}
+% TODO. Exp 0, Gates A/B, Exp 1--5 (DESIGN.md §4); numbers come from
+% results/*.json via the scripts in experiments/.
+
+\section{Results}
+\label{sec:results}
+% TODO. Headline: the false-agreement rate and its decomposition, same-family
+% vs cross-family, native vs transported. See results/RESULTS.md.
+
+\section{Related Work}
+\label{sec:related}
+% TODO. See the citation checklist in paper/PLAN.md §5.
+
+\section{Discussion and Limitations}
+\label{sec:discussion}
+% TODO. DESIGN.md §8 threats, verbatim in spirit: prominence vs truth,
+% contamination, the transport blind spot, process vs knowledge independence,
+% and the fact that this is reliability/routing, not strong scalable oversight.
+
+\section{Future Work}
+\label{sec:future}
+% Predicting oversight reliability from representational similarity (CKA -> rho)
+% is a separate paper; see ../future_work/paper2-representational-similarity.md.
+
+% Draft convenience: render every entry in refs.bib while the body is still a
+% skeleton with no \cite commands. Remove before submission.
+\nocite{*}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

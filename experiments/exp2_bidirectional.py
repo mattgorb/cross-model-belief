@@ -17,8 +17,7 @@ import json
 
 import numpy as np
 
-from common import (PairRun, base_parser, header, layer_specs,
-                    resolve_pair, write_result)
+from common import (base_parser, header, make_run, resolve_pair, write_result)
 
 from cmb import metrics
 from cmb.config import RESULTS_DIR
@@ -29,9 +28,7 @@ def main() -> int:
     args = ap.parse_args()
     a, b = resolve_pair(args.pair)
 
-    la, lb = layer_specs(args)
-    run = PairRun(a, b, args.dataset, la, lb, args.n,
-                  args.synthetic, args.seed).build(refresh=args.refresh)
+    run = make_run(a, b, args).build(refresh=args.refresh)
     ids = np.array(run.acts_a.item_ids)[run.te]
 
     sets = {}
@@ -51,6 +48,9 @@ def main() -> int:
     print(f"\n  intersection (transport-robust core)  {int(core.sum()):>5}"
           f"   rate {core.sum() / max(n_false,1):.3f}")
     print(f"  union                                 {int(union.sum()):>5}")
+    print(f"  direction-only (symmetric difference)  "
+          f"{int(union.sum() - core.sum()):>5}"
+          f"   <-- transport noise: flagged one way only")
     print(f"  jaccard(a_to_b, b_to_a)               "
           f"{core.sum() / max(union.sum(), 1):.3f}"
           f"   <-- low means the map, not shared belief, is picking the set")
@@ -68,6 +68,7 @@ def main() -> int:
                   "n_false": n_false,
                   "counts": {k: int(v.sum()) for k, v in sets.items()},
                   "core": int(core.sum()), "union": int(union.sum()),
+                  "direction_only": int(union.sum() - core.sum()),
                   "jaccard": float(core.sum() / max(union.sum(), 1)),
                   "core_and_native": int(all_three.sum()),
                   "core_item_ids": core_ids}, args.tag)

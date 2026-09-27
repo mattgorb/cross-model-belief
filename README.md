@@ -12,7 +12,10 @@ activation space? If yes, the method can detect its own blind spot. If no,
 cross-model belief agreement has an irreducible cap and we report it.
 
 **Read `DESIGN.md` first** — it is the spec, and every script cites the section
-it implements.
+it implements. The write-up lives in [`paper/`](paper/) (skeleton, abstract, and
+the formal treatment of the false-agreement algebra in `theory.tex`, with the
+framing and venue decisions in `paper/PLAN.md`); the follow-on paper is
+[`future_work/`](future_work/).
 
 ## Quickstart
 
@@ -27,10 +30,13 @@ analysis for free — follow [`docs/RUNBOOK.md`](docs/RUNBOOK.md):
 
 ```bash
 export CMB_CACHE=/mnt/data/activations
-scripts/extract.py --models qwen-7b,llama-8b --datasets truthfulqa --n 2000
-scripts/extract.py --list
-scripts/run_all.sh --pair cross-family --dataset truthfulqa
+scripts/kickoff.sh --dry-run --pair cross-family --n 2000   # what it will do
+scripts/kickoff.sh --pair cross-family --dataset truthfulqa --n 2000
 ```
+
+`kickoff.sh` extracts what the pair needs, verifies the cache, then runs every
+experiment in dependency order. The one-page plan — models, datasets, what each
+step rules out — is [`docs/EXPERIMENT_PLAN.md`](docs/EXPERIMENT_PLAN.md).
 
 `--synthetic` swaps in a generative activation model (`cmb/synthetic.py`) whose
 latents contain a truth direction, a *shared* prominence confound, a shared
@@ -50,9 +56,10 @@ cmb/                      library
   models.py               HF backend: hidden states + output P(Yes)
   tokalign.py             span alignment + tokenizer compatibility (ablation)
   cache.py / extract.py   activation cache keyed (model, dataset, item, layer, pos|neg)
-  probes.py               CCS belief probe; supervised direction for Exp 3/4
+  probes.py               CCS belief probe; mass-mean / LR baselines; Exp 3/4 direction
   align.py                ridge map A->B with held-out alpha selection; linear CKA
-  metrics.py              sign-resolved AUROC, the 8-cell table, Row-2 rate
+  metrics.py              sign-resolved AUROC, the 8-cell table, Row-2 rate,
+                          the false-agreement identity + Frechet bounds + N_eff
   synthetic*.py           the no-GPU testbed
 experiments/
   common.py               PairRun: the shared fit-on-train / score-on-test pipeline
@@ -64,9 +71,15 @@ experiments/
   exp3_separability.py    is Row 2 linearly separable (the bet)
   exp4_generalization_matrix.py   5x5 leave-one-dataset-out + held-out model pair
   exp5_layer_sweep.py     depth sweep of gates, Row 2, separability
+  exp6_post_training.py   base vs instruct: does post-training break transport
 tests/                    pytest, all synthetic
-scripts/                  extract.py (warm the cache), run_all.sh, smoke.sh
+scripts/                  kickoff.sh (extract + run everything), extract.py
+                          (warm the cache), run_all.sh, smoke.sh
+docs/EXPERIMENT_PLAN.md   one page: models, datasets, the plan, the costs
 docs/RUNBOOK.md           infra -> extraction -> experiments, end to end
+paper/                    the write-up: main.tex, abstract.tex, theory.tex
+                          (the false-agreement algebra), refs.bib, PLAN.md
+future_work/              Paper 2 (predicting reliability from CKA) and beyond
 reference/                the original single-file scripts this was refactored from
 infra/                    Terraform for spot GPU instances
 results/                  *.json per experiment + your RESULTS.md
@@ -83,8 +96,9 @@ everything downstream meaningless:
 | Exp 0 | do activations beat output logprobs? | the internal-space framing is unjustified |
 | Gate A | does the probe read truth, not confidence? | stop — nothing downstream is meaningful |
 | Gate B | does the map carry the probe? | single-model story only; drop the cross-model framing |
-| Exp 1 | how big is Row 2, and does it shrink with independence? | floor vs ceiling (§2.3) |
+| Exp 1 | how big is Row 2, where does it sit between its bounds, and does it shrink with independence? | floor vs ceiling (§2.3) |
 | Exp 3–4 | is Row 2 separable *and* generalizable? | either the result, or the honest cap |
+| Exp 6 | does post-training degrade transport at the last layer? | fit maps at the probe's own layer instead |
 
 ## Choices worth knowing about
 
@@ -102,6 +116,33 @@ python3 experiments/gate_b_transport.py --pair cross-family              # final
 python3 experiments/gate_b_transport.py --layer-a final --layer-b 0.6    # per model
 python3 experiments/exp5_layer_sweep.py --sweep 0.4,0.6,0.8,final
 ```
+
+**The Row-2 rate is always reported with its decomposition.** A rate on its own
+cannot say whether a pair is safe because the probes are *accurate* or because
+their errors are *independent* — and only the second improves with better model
+choices. Experiment 1 therefore prints the two false-positive rates, the error
+correlation `rho`, `rho` as a fraction of its feasible maximum (raw phi cannot
+reach 1 unless the marginals match, so it is not comparable across pairs), the
+Fréchet bounds the rate must lie inside, and the detectable coverage
+`1 - FA/p_strong` that a disagreement router buys. The identity behind all of it
+is `FA = p1*p2 + rho*sqrt(p1(1-p1))*sqrt(p2(1-p2))` — exact, not a bound. See
+DESIGN.md §2.4 and `paper/theory.tex`.
+
+**Transport is priced, not assumed.** Gate B reports `eps`, the transported
+probe's false-positive inflation at a matched positive rate, in the same units
+as the rate it inflates; Experiment 1 then reports false agreement twice, native
+and transported, and recomputes `rho` on the transported readouts rather than
+inheriting the native value — the map is fitted from the source model's geometry,
+so it can inflate the correlation as well as the error rate. On the synthetic
+backend the planted map is recoverable almost exactly, so `eps ≈ 0` there by
+construction; a real pair is where the number means something.
+
+**Three probe types, one instrument.** `--probe ccs` (default, unsupervised — the
+case that matters), `--probe mass-mean` (the strongest causal baseline in Marks &
+Tegmark) and `--probe lr`, all on the same activations at the same layer. The
+labeled ones are baselines that bound what supervision would buy; they never
+substitute for CCS, since only CCS answers whether belief is recoverable without
+labels.
 
 **Tokenizer differences need no special handling on the default path.** Each
 claim becomes one pooled vector per model, so the map is fitted on item-level
@@ -141,7 +182,12 @@ items. See the data-scarcity mitigations in DESIGN.md §4.
 ## Real runs
 
 Open-weight models only (activations and logprobs are both required):
-`Qwen2.5-{1.5B,7B,32B}-Instruct` and `Llama-3.1-8B-Instruct`. Extraction is
+`Qwen3-{4B,8B,32B}` (+ `Qwen3-8B-Base`), `Qwen3.8-27B`, `gemma-4-12B{,-it}` and
+`Llama-3.1-8B-Instruct` — three families, one of them (Llama) deliberately
+pre-reasoning-era. Every other family is a hybrid thinking model, and the
+pipeline runs them with **no chat template and thinking off**, so the probe reads
+*pre-reasoning* belief and `p_yes` stays a real Yes/No logprob (DESIGN.md §6.1).
+Extraction is
 fp16 — never 4-bit, which perturbs exactly what the probe reads. All swept
 layers come out of one forward pass and are cached together, so the expensive
 32B pass runs once; point `CMB_CACHE` at persistent storage (the gp3 volume in

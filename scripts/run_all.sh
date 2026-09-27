@@ -42,6 +42,7 @@ step run  experiments/exp2_bidirectional.py    --pair "$PAIR" --dataset "$DATASE
 step run  experiments/exp3_separability.py     --pair "$PAIR" --dataset "$DATASET" --n "$N" "${ARGS[@]+"${ARGS[@]}"}"
 step run  experiments/exp4_generalization_matrix.py --pair "$PAIR" --n "$N" --held-out-pair "${ARGS[@]+"${ARGS[@]}"}"
 step run  experiments/exp5_layer_sweep.py      --pair "$PAIR" --dataset "$DATASET" --n "$N" "${ARGS[@]+"${ARGS[@]}"}"
+step run  experiments/exp6_post_training.py    --dataset "$DATASET" --n "$N" "${ARGS[@]+"${ARGS[@]}"}"
 
 echo
 echo "All results in results/*.json. Write up the outcome in results/RESULTS.md,"

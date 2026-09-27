@@ -40,6 +40,9 @@ def base_parser(description: str) -> argparse.ArgumentParser:
                    help="override the layer for model A (same formats)")
     p.add_argument("--layer-b", default=None,
                    help="override the layer for model B (same formats)")
+    p.add_argument("--probe", default="ccs", choices=probes.PROBE_KINDS,
+                   help="belief probe: 'ccs' (unsupervised, the case that "
+                        "matters) or the labeled baselines 'mass-mean' / 'lr'")
     p.add_argument("--seed", type=int, default=SEED)
     p.add_argument("--synthetic", action="store_true",
                    help="run against the synthetic backend (no GPU, no download)")
@@ -58,6 +61,19 @@ def resolve_pair(spec: str) -> tuple[str, str]:
         return PAIRS[spec]
     a, b = spec.split(",")
     return a.strip(), b.strip()
+
+
+def make_run(a: str, b: str, args, dataset: str | None = None,
+             layers: tuple | None = None) -> "PairRun":
+    """Build a `PairRun` for a model pair from parsed CLI args.
+
+    One place where the CLI meets the pipeline, so a new flag (e.g. `--probe`)
+    reaches every experiment at once instead of being threaded by hand.
+    """
+    la, lb = layers if layers is not None else layer_specs(args)
+    return PairRun(a, b, dataset or args.dataset, la, lb, args.n,
+                   args.synthetic, args.seed,
+                   probe_kind=getattr(args, "probe", "ccs"))
 
 
 def write_result(name: str, payload: dict, tag: str = "") -> Path:
@@ -105,6 +121,7 @@ class PairRun:
     synthetic: bool = False
     seed: int = SEED
     test_frac: float = TEST_FRAC
+    probe_kind: str = "ccs"
 
     # filled by build()
     layer_a: int = field(init=False, default=0)
@@ -137,11 +154,17 @@ class PairRun:
         self.probe_b = self._fit_one(self.acts_b, self.layer_b)
 
     def _fit_one(self, acts, layer):
-        p = probes.CCSProbe(acts.pos[layer].shape[1])
-        p.fit(acts.pos[layer][self.tr], acts.neg[layer][self.tr], seed=self.seed)
-        # One bit of label info, spent on the train split only.
-        p.resolve_sign(acts.pos[layer][self.tr], acts.neg[layer][self.tr],
-                       acts.labels[self.tr])
+        p = probes.make_probe(self.probe_kind, acts.pos[layer].shape[1])
+        Xp, Xn = acts.pos[layer][self.tr], acts.neg[layer][self.tr]
+        if self.probe_kind == "ccs":
+            p.fit(Xp, Xn, seed=self.seed)
+        else:
+            # The labeled baselines fit on the train split's labels; CCS never
+            # sees them (paper/PLAN.md §3).
+            p.fit(Xp, Xn, acts.labels[self.tr], seed=self.seed)
+        # One bit of label info for CCS's arbitrary orientation, spent on the
+        # train split only; a no-op for the supervised baselines.
+        p.resolve_sign(Xp, Xn, acts.labels[self.tr])
         return p
 
     def _fit_maps(self) -> None:

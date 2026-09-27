@@ -146,3 +146,106 @@ class LinearDirection:
 
     def score(self, X: np.ndarray) -> np.ndarray:
         return ((X - self.mu) / self.sd) @ self.w + self.b
+
+
+class SupervisedBeliefProbe:
+    """Labeled baselines for the belief probe, with the `CCSProbe` interface.
+
+    Same data, same activations, same layer as CCS — only the fitting rule
+    changes, which is the comparison paper/PLAN.md §3 asks for:
+
+      `mass-mean`  theta = mean(F | true) - mean(F | false), the strongest causal
+                   baseline in Marks & Tegmark (2024);
+      `lr`         logistic regression on the same features; cheap, and expected
+                   to be largely redundant with mass-mean. Reporting it is how we
+                   show that rather than assert it.
+
+    Features are the *contrast difference* `pos - neg`, so the probe reads the
+    same object CCS effectively reads and the two are comparable at the same
+    site. These probes use labels, so they are baselines for the unsupervised
+    case, never a substitute for it: only CCS answers the question of whether
+    belief is recoverable without supervision.
+
+    `sign` exists only for interface parity — a supervised fit already has an
+    orientation, and `resolve_sign` is a no-op that reports train agreement.
+    """
+
+    KINDS = ("mass-mean", "lr")
+
+    def __init__(self, d: int, kind: str = "mass-mean"):
+        if kind not in self.KINDS:
+            raise ValueError(f"kind must be one of {self.KINDS}, got {kind!r}")
+        self.kind = kind
+        self.d = d
+        self.sign = 1.0
+        self._norm = None
+        self.w = None
+        self.b = 0.0
+        self._scale = 1.0
+
+    # -- fitting ------------------------------------------------------------
+
+    def fit(self, Xp: np.ndarray, Xn: np.ndarray, labels: np.ndarray,
+            seed: int = SEED, **kw) -> float:
+        """Fit on the train split. Returns train accuracy (not a loss)."""
+        self._norm = standardizer(np.concatenate([Xp, Xn], 0))
+        F = self._norm(Xp) - self._norm(Xn)
+        y = np.asarray(labels).astype(int)
+
+        if self.kind == "mass-mean":
+            mu_t, mu_f = F[y == 1].mean(0), F[y == 0].mean(0)
+            self.w = mu_t - mu_f
+            # Threshold midway between the class means along theta — the plain
+            # mass-mean classifier, no extra fitting.
+            self.b = -0.5 * float((mu_t + mu_f) @ self.w)
+        else:
+            from sklearn.linear_model import LogisticRegression
+
+            clf = LogisticRegression(max_iter=2000, random_state=seed).fit(F, y)
+            self.w = clf.coef_.ravel()
+            self.b = float(clf.intercept_[0])
+
+        s = F @ self.w + self.b
+        self._scale = float(np.std(s)) + 1e-9
+        return float(((s >= 0).astype(int) == y).mean())
+
+    # -- inference ----------------------------------------------------------
+
+    def _score(self, Xp: np.ndarray, Xn: np.ndarray) -> np.ndarray:
+        F = self._norm(Xp) - self._norm(Xn)
+        return F @ self.w + self.b
+
+    def belief(self, Xp: np.ndarray, Xn: np.ndarray | None = None) -> np.ndarray:
+        """P(claim is true) in [0, 1].
+
+        The squashing is monotone in the projection and scaled by the train
+        spread, so AUROC is unaffected and the 0.5 fence is the fitted decision
+        boundary — the verdict the 8-cell table wants.
+        """
+        if Xn is None:
+            raise ValueError("supervised probes read the contrast pair; pass Xn")
+        s = self._score(Xp, Xn) / self._scale
+        p = 1.0 / (1.0 + np.exp(-s))
+        return p if self.sign > 0 else 1 - p
+
+    def vote(self, Xp, Xn=None, threshold: float = 0.5) -> np.ndarray:
+        return (self.belief(Xp, Xn) >= threshold).astype(int)
+
+    def resolve_sign(self, Xp, Xn, labels) -> float:
+        """No-op: a supervised fit is already oriented. Reports train agreement."""
+        self.sign = 1.0
+        return float(((self.belief(Xp, Xn) >= 0.5).astype(int)
+                      == np.asarray(labels).astype(int)).mean())
+
+    def direction(self) -> np.ndarray:
+        return self.sign * np.asarray(self.w).ravel()
+
+
+PROBE_KINDS = ("ccs",) + SupervisedBeliefProbe.KINDS
+
+
+def make_probe(kind: str, d: int):
+    """Probe factory. `ccs` is the case that matters; the rest are baselines."""
+    if kind == "ccs":
+        return CCSProbe(d)
+    return SupervisedBeliefProbe(d, kind)

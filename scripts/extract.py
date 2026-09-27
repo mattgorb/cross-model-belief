@@ -9,8 +9,8 @@ confirm the files are on persistent storage, then iterate on the analysis for
 free.
 
     export CMB_CACHE=/mnt/data/activations
-    scripts/extract.py --models qwen-7b,llama-8b --datasets truthfulqa --n 2000
-    scripts/extract.py --models qwen-32b --datasets truthfulqa --n 2000
+    scripts/extract.py --models qwen3-8b,gemma4-12b --datasets truthfulqa --n 2000
+    scripts/extract.py --models qwen3-32b --datasets truthfulqa --n 2000
     scripts/extract.py --list                 # what is cached, and how big
 
 All swept layers come out of one forward pass, so extracting the whole sweep
@@ -64,12 +64,15 @@ def list_cache() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--models", default="qwen-7b,llama-8b",
+    ap.add_argument("--models", default="qwen3-8b,gemma4-12b",
                     help=f"comma-separated keys from {sorted(MODELS)}, or any "
                          "HuggingFace repo id")
     ap.add_argument("--datasets", default="truthfulqa",
                     help=f"comma-separated, from {list(DATASETS)}")
-    ap.add_argument("--n", type=int, default=2000, help="items per dataset")
+    ap.add_argument("--n", default="all",
+                    help="items per dataset, or 'all' (the default) for every "
+                         "item the dataset has. The train/test split happens "
+                         "later, locally, so extract everything once.")
     ap.add_argument("--layers", default="",
                     help="extra layer specs beyond the standing sweep "
                          f"{LAYER_SWEEP} (comma-separated)")
@@ -81,6 +84,8 @@ def main() -> int:
 
     if args.list:
         return list_cache()
+
+    args.n = None if str(args.n).lower() in ("all", "none", "-1") else int(args.n)
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]

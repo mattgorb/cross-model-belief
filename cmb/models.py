@@ -52,6 +52,7 @@ class HFModel:
         spec = MODELS[key] if key in MODELS else None
         hf_name = spec.hf_name if spec else key
         self.key = key
+        self.spec = spec
         self.torch = torch
         self.tok = AutoTokenizer.from_pretrained(hf_name, use_fast=True)
         if not self.tok.is_fast:
@@ -59,11 +60,53 @@ class HFModel:
                 f"{hf_name} has no fast tokenizer, so it returns no character "
                 "offsets and cannot be span-aligned against another model. "
                 "Fall back to --map-pairs item (pooled) for this model.")
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            hf_name, torch_dtype=torch.float16, device_map=device_map,
-            output_hidden_states=True)
+
+        # The reasoning-era releases (Qwen 3.5+ and Gemma 4) are native VLMs and
+        # expose ...ForConditionalGeneration, which AutoModelForCausalLM refuses.
+        # Text-only input through the wrapper still runs the language stack and
+        # still returns its hidden states, which is all the probe needs.
+        loaders = [AutoModelForCausalLM]
+        if spec is not None and spec.multimodal:
+            loaders = []
+        try:
+            from transformers import AutoModelForImageTextToText
+            loaders.append(AutoModelForImageTextToText)
+        except ImportError:                      # older transformers
+            pass
+        from transformers import AutoModel
+        loaders.append(AutoModel)
+
+        errs = []
+        self.lm = None
+        for loader in loaders:
+            try:
+                self.lm = loader.from_pretrained(
+                    hf_name, torch_dtype=torch.float16, device_map=device_map,
+                    output_hidden_states=True)
+                break
+            except (ValueError, KeyError, OSError) as e:
+                errs.append(f"{loader.__name__}: {type(e).__name__}: {e}")
+        if self.lm is None:
+            raise RuntimeError(
+                f"could not load {hf_name} with any Auto class. A very new "
+                f"architecture usually means transformers is too old — check "
+                f"requirements.txt. Tried:\n  " + "\n  ".join(errs))
         self.lm.eval()
-        self.n_layers = int(self.lm.config.num_hidden_layers)
+        self.n_layers = self._depth(self.lm.config)
+        if spec is not None and spec.n_layers != self.n_layers:
+            # The registry documents depth so the docs and the layer flags can be
+            # read without downloading weights; the loaded config wins.
+            print(f"[{key}] registry says {spec.n_layers} layers, config says "
+                  f"{self.n_layers} — using the config")
+
+    @staticmethod
+    def _depth(config) -> int:
+        """Hidden-layer count, reaching into `text_config` for VLM wrappers."""
+        for cfg in (getattr(config, "text_config", None), config):
+            n = getattr(cfg, "num_hidden_layers", None) if cfg is not None else None
+            if n:
+                return int(n)
+        raise RuntimeError(f"cannot determine depth from config {type(config)}")
 
     def default_layer(self, frac: float = DEFAULT_LAYER_FRAC) -> int:
         return layer_index(self.n_layers, frac)

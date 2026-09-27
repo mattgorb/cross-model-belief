@@ -1,0 +1,30 @@
+% Abstract. One \begin{abstract} block, kept in its own file so the framing can
+% be edited without touching the document skeleton.
+%
+% The one placeholder is the results sentence, marked below: it is deliberately
+% not written until Experiment 1 has produced a number (DESIGN.md §2.3 decides
+% whether that sentence reports a floor or a ceiling).
+\begin{abstract}
+Overseeing a language model with another language model rests on an assumption
+that is almost never tested: that the two fail differently. The overseer reads
+outputs, so anything the model does not express escapes it, and any error the two
+share escapes it as well.
+
+Linear probes offer a way past the first problem. They recover a truth direction
+from activations, giving direct access to what a model represents rather than
+what it reports. We ask whether they escape the second.
+
+Fitting probes on two models and comparing their readouts, we characterize
+\emph{false agreement}, the case where both probes read a claim as true and the
+claim is false, and show its rate depends on the correlation between the probes'
+errors rather than their individual accuracies.
+
+We measure this across model pairs varying in family and scale, transporting
+probes with a linear alignment map and reporting the cost of transport
+explicitly.
+%% RESULTS SENTENCE — write after Experiment 1; floor vs ceiling per DESIGN.md §2.3.
+\textcolor{red}{[Results sentence.]}
+These findings bound how much oversight cross-model agreement can provide, and
+identify representational diversity as the quantity practitioners should select
+for.
+\end{abstract}

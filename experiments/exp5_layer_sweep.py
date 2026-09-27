@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from common import PairRun, base_parser, header, resolve_pair, write_result
+from common import base_parser, header, make_run, resolve_pair, write_result
 
 from cmb import metrics
 from cmb.config import LAYER_SWEEP
@@ -39,8 +39,7 @@ def main() -> int:
           f" {'row2':>8} {'sep AUROC':>10}")
     rows = []
     for spec in specs:
-        run = PairRun(a, b, args.dataset, spec, spec, args.n, args.synthetic,
-                      args.seed).build(refresh=args.refresh)
+        run = make_run(a, b, args, layers=(spec, spec)).build(refresh=args.refresh)
         gt = run.labels_test
         ga = gate_a_for(a, run.native_belief("a"), run.acts_a.p_yes[run.te], gt, 0.5)
         gb = gate_a_for(b, run.native_belief("b"), run.acts_b.p_yes[run.te], gt, 0.5)

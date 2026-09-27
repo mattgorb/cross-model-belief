@@ -26,8 +26,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from common import (PairRun, base_parser, header, layer_specs,
-                    resolve_pair, write_result)
+from common import (base_parser, header, make_run, resolve_pair, write_result)
 
 from cmb import metrics
 from cmb.probes import LinearDirection
@@ -62,9 +61,7 @@ def main() -> int:
     args = ap.parse_args()
     a, b = resolve_pair(args.pair)
 
-    la, lb = layer_specs(args)
-    run = PairRun(a, b, args.dataset, la, lb, args.n,
-                  args.synthetic, args.seed).build(refresh=args.refresh)
+    run = make_run(a, b, args).build(refresh=args.refresh)
 
     X_tr, y_tr, _ = subset_for(run, "train", args.mode)
     X_te, y_te, conf_te = subset_for(run, "test", args.mode)

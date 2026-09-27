@@ -1,0 +1,200 @@
+% Section 2 — the algebra of false agreement.
+%
+% Scope note, to keep the paper honest: the identity below is elementary and the
+% correlation floor is standard ensemble theory (bias--variance--covariance).
+% Neither is claimed as a contribution. What is new here is (i) applying them to
+% probe-based cross-model oversight, (ii) the transport term of
+% Sec.~\ref{sec:theory:transport}, and (iii) measuring the error correlation
+% directly on internal readouts rather than on outputs. The section is framing
+% that motivates a measurement, not a theorem.
+%
+% Every quantity in this section has an implementation in cmb/metrics.py; the
+% margin comments name it.
+\section{The Algebra of False Agreement}
+\label{sec:theory}
+
+\subsection{Setup}
+\label{sec:theory:setup}
+
+Restrict attention to the statements whose ground truth is \textsc{false}; these
+are the only items on which false agreement is defined. For probe $i \in \{1,2\}$
+let
+\[
+  E_i = \mathbf{1}\{\text{probe $i$ reads \textsc{true}}\},
+  \qquad
+  p_i = \Prob(E_i = 1),
+\]
+so $p_i$ is probe $i$'s false-positive rate on this restricted population.
+\emph{False agreement} is the event $\{E_1 = E_2 = 1\}$, and its rate is
+\[
+  \FA = \Prob(E_1 = 1,\, E_2 = 1).
+\]
+In the eight-cell joint table of two verdicts against ground truth
+(Section~\ref{sec:method}), $\FA$ is the mass of the single cell in which both
+probes say \textsc{true} and the claim is false --- the one cell where
+disagreement-based routing stays silent and is wrong.
+
+\subsection{The false-agreement identity}
+\label{sec:theory:identity}
+
+\begin{proposition}[False agreement is set by error correlation]
+\label{prop:identity}
+Let $\rho$ be the Pearson correlation between $E_1$ and $E_2$, which for binary
+variables is the $\phi$ coefficient. Then
+\begin{equation}
+  \FA = p_1 p_2 + \rho \sqrt{p_1(1-p_1)}\,\sqrt{p_2(1-p_2)}.
+  \label{eq:identity}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+For indicator variables, $\mathbb{E}[E_i] = p_i$, $\mathbb{E}[E_1 E_2] =
+\Prob(E_1=1, E_2=1) = \FA$, and $\mathrm{Var}(E_i) = p_i(1-p_i)$. Hence
+$\Cov(E_1, E_2) = \FA - p_1 p_2$, and substituting
+$\Cov(E_1,E_2) = \rho \sqrt{\mathrm{Var}(E_1)\mathrm{Var}(E_2)}$ gives
+\eqref{eq:identity}.
+\end{proof}
+
+Equation~\eqref{eq:identity} is an identity, not an approximation or a bound: it
+holds for every joint distribution of the two verdicts. Its content is the split
+between the two terms. The first, $p_1 p_2$, is what accuracy buys. The second is
+what \emph{diversity} buys, and it can dominate. Two accurate probes whose errors
+are strongly correlated can suffer a higher $\FA$ than two less accurate probes
+whose errors are independent --- which is why selecting overseers on accuracy
+alone is not sound.
+
+\subsection{Reference points and the feasible range of $\rho$}
+\label{sec:theory:bounds}
+
+Three reference points, stated with the running example $p_1 = 10\%$,
+$p_2 = 5\%$:
+
+\begin{description}
+  \item[Independence ($\rho = 0$):] $\FA = p_1 p_2 = 0.5\%$. The errors coincide
+    only by chance: of $1{,}000$ false statements, probe 2 fails on $50$, and
+    probe 1 fails on $10\%$ of those, which is $5$. This is a \emph{reference
+    point}, not a bound --- nothing forces two models trained on overlapping
+    corpora to reach it.
+  \item[Maximal overlap (upper bound):] $\FA = \min(p_1, p_2) = 5\%$. Every error
+    of the better probe is also an error of the worse one.
+  \item[Disjoint errors (lower bound):] $\FA = \max(0,\, p_1 + p_2 - 1) = 0$.
+    This requires anti-correlated errors, which is not a realistic operating
+    point for models trained on overlapping data.
+\end{description}
+
+\begin{proposition}[Fr\'echet bounds and the attainable correlation]
+\label{prop:frechet}
+$\max(0, p_1 + p_2 - 1) \le \FA \le \min(p_1, p_2)$, and consequently $\rho$ is
+confined to $[\rho_{\min}, \rho_{\max}]$ with
+\begin{equation}
+  \rho_{\max} = \frac{\min(p_1,p_2) - p_1 p_2}{\sqrt{p_1(1-p_1)p_2(1-p_2)}},
+  \qquad
+  \rho_{\min} = \frac{\max(0,\,p_1+p_2-1) - p_1 p_2}{\sqrt{p_1(1-p_1)p_2(1-p_2)}}.
+  \label{eq:rhorange}
+\end{equation}
+In particular $\rho$ spans the full interval $[-1, 1]$ only when $p_1 = p_2$.
+\end{proposition}
+
+\begin{proof}
+The bounds on $\FA$ are the Fr\'echet--Hoeffding bounds for the joint
+distribution of two indicators with fixed marginals. Inverting
+\eqref{eq:identity} for $\rho$ is monotone increasing in $\FA$, so the extremes
+of $\FA$ map to the extremes of $\rho$, giving \eqref{eq:rhorange}.
+\end{proof}
+
+This matters for reporting. In the running example, maximal overlap corresponds
+to $\rho \approx 0.69$, not $\rho = 1$, and disjointness to $\rho \approx -0.08$.
+A raw $\rho$ is therefore not comparable across pairs with different
+false-positive rates. We report either $\rho$ normalized by its feasible extreme,
+\begin{equation}
+  \tilde\rho = \rho / \rho_{\max} \ \ (\rho \ge 0),
+  \qquad
+  \tilde\rho = \rho / |\rho_{\min}| \ \ (\rho < 0),
+  \label{eq:rhonorm}
+\end{equation}
+or $\FA$ directly alongside its two Fr\'echet bounds, which is
+scale-free by construction. Self-oversight --- a model checking itself --- is the
+degenerate case in which $\FA$ attains its upper bound and the second reader adds
+nothing.
+
+\subsection{Detectable coverage}
+\label{sec:theory:coverage}
+
+The same $2\times 2$ table yields the positive claim and the negative one at
+once. On the false statements the mass splits into \emph{agree-wrong} ($\FA$),
+\emph{disagree}, and \emph{agree-right}. Disagreement is what a router can flag;
+$\FA$ is the blind spot. Taking the stronger probe --- the one with the lower
+false-positive rate, $p_{\mathrm{strong}} = \min(p_1,p_2)$ --- as the system
+whose errors we are trying to catch:
+
+\begin{corollary}[Coverage of a disagreement router]
+\label{cor:coverage}
+The fraction of the strong probe's false positives that the router flags is
+\begin{equation}
+  C = 1 - \frac{\FA}{p_{\mathrm{strong}}}.
+  \label{eq:coverage}
+\end{equation}
+\end{corollary}
+
+With the running example, $C = 90\%$ under independence and $C = 0\%$ under
+maximal overlap. One experiment therefore reports both the oversight claim and
+its blind spot, and they are two readings of the same table. A caveat that
+survives all of this: disagreement establishes only that \emph{one} of the two
+readers is wrong, never which one, so the router buys a labeled check rather than
+a correction.
+
+\subsection{Transport-adjusted false agreement}
+\label{sec:theory:transport}
+
+When the second reader is not a natively fitted probe but a probe carried across
+models through the alignment map, its false-positive rate degrades:
+\[
+  p_2' = p_2 + \eps ,
+\]
+where $\eps$ is the Gate~B degradation --- native minus transported discriminative
+performance, converted to an error rate at a matched threshold. We measure $\eps$
+as the realized inflation of the false-positive rate at the threshold that holds
+the probe's positive rate fixed, rather than reading it off an AUROC gap, so that
+$\eps$ enters \eqref{eq:identity} in the same units as $p_2$.
+
+Two consequences shape the reporting. First, $\FA$ is reported \emph{twice}, once
+with native probes and once with transported ones; the gap between the two is the
+cost of the map, and it belongs in the paper as a measured quantity rather than a
+caveat. Second, transport plausibly inflates $\rho$ as well, because the map is
+fitted from the source model's geometry and thereby imports that model's
+structure into the target's readout. We therefore recompute $\rho$ on the
+transported readouts instead of reusing the native $\rho$; substituting
+$(p_1, p_2', \rho')$ into \eqref{eq:identity} gives the transport-adjusted rate.
+
+\paragraph{Bidirectional intersection.}
+Transport has a direction, and a false agreement that appears under only one
+direction may be an artifact of the map rather than a shared belief error. We
+compute the false-agreement set under both $A \to B$ and $B \to A$ transport and
+treat the \emph{intersection} as the robust false-agreement set; items flagged in
+one direction only are counted as transport noise, and the size of that gap (we
+report the Jaccard overlap of the two sets) is itself a diagnostic of map
+quality.
+
+\subsection{Remark: the correlation floor for $N$ overseers}
+\label{sec:theory:neff}
+
+\begin{remark}[Effective number of independent overseers]
+\label{rem:neff}
+For $N$ overseers with equal error variance and mean pairwise error correlation
+$\rhobar$, the effective number of independent overseers is
+\begin{equation}
+  \Neff = \frac{N}{1 + (N-1)\rhobar}
+  \;\xrightarrow[N \to \infty]{}\; \frac{1}{\rhobar}.
+  \label{eq:neff}
+\end{equation}
+\end{remark}
+
+This is the \emph{correlation floor}: once $\rhobar$ is positive, adding
+overseers stops helping, and the ceiling $1/\rhobar$ does not depend on $N$. At
+$\rhobar = 0.8$ the cap is $\Neff \le 1.25$ --- adding models to a pool of
+near-clones buys essentially nothing; it takes $\rhobar \approx 0.3$ for $N = 20$
+readers to be worth about $3$ independent ones. The result is standard ensemble
+theory (the bias--variance--covariance decomposition), and we cite it rather than
+claim it. The $N$-model case is developed properly in follow-on work; here it
+serves only to show that the pairwise quantity we measure, $\rho$, is the
+quantity that governs the general case.

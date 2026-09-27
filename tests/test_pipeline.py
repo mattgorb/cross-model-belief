@@ -24,7 +24,7 @@ _TMP = tempfile.mkdtemp(prefix="cmb-test-")
 os.environ.setdefault("CMB_CACHE", str(Path(_TMP) / "cache"))
 os.environ.setdefault("CMB_RESULTS", str(Path(_TMP) / "results"))
 
-from cmb import align, metrics                      # noqa: E402
+from cmb import align, metrics, probes              # noqa: E402
 from cmb.cache import cache_path, load, save        # noqa: E402
 from cmb.data import split_items                    # noqa: E402
 from cmb.extract import get_activations             # noqa: E402
@@ -32,7 +32,7 @@ from cmb.probes import CCSProbe, LinearDirection    # noqa: E402
 from cmb.synthetic_data import synthetic_items      # noqa: E402
 from common import PairRun                          # noqa: E402
 
-PAIR = ("qwen-7b", "llama-8b")
+PAIR = ("qwen3-8b", "gemma4-12b")
 N = 400
 
 
@@ -44,8 +44,8 @@ def run():
 # -- plumbing ---------------------------------------------------------------
 
 def test_cache_roundtrip():
-    acts = get_activations("qwen-7b", "boolq", 100, synthetic=True)
-    path = cache_path("synthetic-qwen-7b", "boolq", 100)
+    acts = get_activations("qwen3-8b", "boolq", 100, synthetic=True)
+    path = cache_path("synthetic-qwen3-8b", "boolq", 100)
     assert path.exists(), "extraction must write a cache file"
     again = load(path)
     assert again.item_ids == acts.item_ids
@@ -54,8 +54,8 @@ def test_cache_roundtrip():
 
 
 def test_cache_is_reused_not_recomputed():
-    a = get_activations("qwen-7b", "rte", 60, synthetic=True)
-    b = get_activations("qwen-7b", "rte", 60, synthetic=True)
+    a = get_activations("qwen3-8b", "rte", 60, synthetic=True)
+    b = get_activations("qwen3-8b", "rte", 60, synthetic=True)
     assert np.array_equal(a.p_yes, b.p_yes)
 
 
@@ -214,7 +214,7 @@ def test_requested_layer_is_extracted_not_approximated():
     """A cache miss on a layer must re-extract rather than snap to a neighbour."""
     from cmb.extract import get_activations
 
-    acts = get_activations("qwen-7b", "rte", 60, synthetic=True, extra_layers=(7,))
+    acts = get_activations("qwen3-8b", "rte", 60, synthetic=True, extra_layers=(7,))
     assert 7 in acts.layers
 
 
@@ -228,7 +228,7 @@ def test_verdict_modes_agree_on_shape(run):
 def test_synthetic_belief_flips_on_prominent_falsehoods():
     from cmb.synthetic import SyntheticModel
 
-    a, b = SyntheticModel("qwen-7b"), SyntheticModel("llama-8b")
+    a, b = SyntheticModel("qwen3-8b"), SyntheticModel("gemma4-12b")
     items = synthetic_items("truthfulqa", 400)
     false_items = [i for i in items if i.label == 0]
     shared = [i for i in false_items
@@ -236,3 +236,115 @@ def test_synthetic_belief_flips_on_prominent_falsehoods():
               and b.internal_belief(i.item_id, 0, i.dataset) == 1]
     assert len(shared) > 0.05 * len(false_items), (
         "both models should read some popular falsehoods as true")
+
+
+# --- the false-agreement algebra (DESIGN.md §2.4, paper/theory.tex) ---------
+
+
+def test_identity_is_exact_on_arbitrary_verdicts():
+    """FA = p1*p2 + rho*sqrt(...) is an identity, so the residual must vanish."""
+    rng = np.random.default_rng(0)
+    for trial in range(20):
+        gt = rng.integers(0, 2, 500)
+        v1 = rng.integers(0, 2, 500)
+        # couple v2 to v1 by a varying amount so rho sweeps a wide range
+        keep = rng.random(500) < trial / 20
+        v2 = np.where(keep, v1, rng.integers(0, 2, 500))
+        fa = metrics.false_agreement(v1, v2, gt)
+        assert abs(fa.identity_residual) < 1e-12
+        assert abs(fa.fa - metrics.fa_from_correlation(fa.p1, fa.p2, fa.rho)) < 1e-12
+
+
+def test_false_agreement_sits_inside_the_frechet_bounds():
+    rng = np.random.default_rng(1)
+    for _ in range(20):
+        gt = rng.integers(0, 2, 400)
+        v1, v2 = rng.integers(0, 2, 400), rng.integers(0, 2, 400)
+        fa = metrics.false_agreement(v1, v2, gt)
+        lo, hi = fa.bounds
+        assert lo - 1e-12 <= fa.fa <= hi + 1e-12
+        rlo, rhi = fa.rho_range
+        assert rlo - 1e-9 <= fa.rho <= rhi + 1e-9
+        assert -1 - 1e-9 <= fa.rho_normalized <= 1 + 1e-9
+
+
+def test_reference_points_from_the_worked_example():
+    """p1=10%, p2=5%: independence 0.5%, max overlap 5%, rho_max ~ 0.69."""
+    p1, p2 = 0.10, 0.05
+    assert metrics.fa_from_correlation(p1, p2, 0.0) == pytest.approx(0.005)
+    lo, hi = metrics.frechet_bounds(p1, p2)
+    assert (lo, hi) == pytest.approx((0.0, 0.05))
+    rlo, rhi = metrics.rho_feasible_range(p1, p2)
+    assert rhi == pytest.approx(0.688, abs=1e-3)   # not 1.0 — p1 != p2
+    assert rlo == pytest.approx(-0.076, abs=1e-3)
+    assert metrics.fa_from_correlation(p1, p2, rhi) == pytest.approx(hi)
+    # coverage: 90% under independence, 0% at maximal overlap
+    assert metrics.detectable_coverage(0.005, p1, p2) == pytest.approx(0.9)
+    assert metrics.detectable_coverage(hi, p1, p2) == pytest.approx(0.0)
+
+
+def test_identical_probes_are_the_self_oversight_degenerate_case():
+    rng = np.random.default_rng(2)
+    gt = rng.integers(0, 2, 300)
+    v = rng.integers(0, 2, 300)
+    fa = metrics.false_agreement(v, v, gt)
+    assert fa.fa == pytest.approx(fa.bounds[1])          # at the upper bound
+    assert fa.rho_normalized == pytest.approx(1.0)
+    assert fa.coverage == pytest.approx(0.0)            # the router never fires
+
+
+def test_correlation_floor_caps_the_overseer_pool():
+    assert metrics.n_eff(1, 0.0) == pytest.approx(1.0)
+    assert metrics.n_eff(20, 0.0) == pytest.approx(20.0)
+    assert metrics.n_eff(20, 0.8) == pytest.approx(1.235, abs=1e-3)
+    assert metrics.n_eff(20, 0.3) == pytest.approx(2.985, abs=1e-3)
+    # N_eff rises with N but never past the cap 1/rho_bar — that is the floor
+    assert metrics.n_eff(10_000, 0.25) == pytest.approx(4.0, abs=1e-2)
+    assert metrics.n_eff(50, 0.25) < metrics.n_eff(5_000, 0.25) < 1 / 0.25
+
+
+def test_row2_rate_and_fa_are_the_same_number():
+    """One table, two readings — they must not drift apart."""
+    rng = np.random.default_rng(3)
+    gt, v1 = rng.integers(0, 2, 400), rng.integers(0, 2, 400)
+    v2 = np.where(rng.random(400) < 0.6, v1, rng.integers(0, 2, 400))
+    table = metrics.eight_cell(v1, v2, gt)
+    fa = metrics.false_agreement(v1, v2, gt)
+    assert fa.fa == pytest.approx(table.row2_rate)
+    assert fa.count == table.row2_count
+
+
+def test_matched_positive_rate_threshold():
+    s = np.linspace(0, 1, 1000)
+    thr = metrics.threshold_at_positive_rate(s, 0.25)
+    assert (s >= thr).mean() == pytest.approx(0.25, abs=0.01)
+
+
+# --- probe baselines -------------------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["mass-mean", "lr"])
+def test_supervised_baselines_recover_a_planted_truth_direction(kind):
+    """Same interface as CCS, and they must separate the planted structure."""
+    from cmb.extract import get_activations
+
+    acts = get_activations("qwen3-8b", "truthfulqa", 300, synthetic=True)
+    layer = max(acts.layers)
+    tr = np.zeros(len(acts.labels), dtype=bool)
+    tr[: len(tr) // 2] = True
+    p = probes.make_probe(kind, acts.pos[layer].shape[1])
+    p.fit(acts.pos[layer][tr], acts.neg[layer][tr], acts.labels[tr])
+    b = p.belief(acts.pos[layer][~tr], acts.neg[layer][~tr])
+    assert b.min() >= 0.0 and b.max() <= 1.0
+    assert metrics.auroc(b, acts.labels[~tr]) > 0.7
+    # a supervised fit is already oriented: resolve_sign must not flip it
+    p.resolve_sign(acts.pos[layer][tr], acts.neg[layer][tr], acts.labels[tr])
+    assert p.sign == 1.0
+
+
+def test_probe_kind_reaches_the_pipeline():
+    r = PairRun(*PAIR, "truthfulqa", "final", "final", 200,
+                synthetic=True, probe_kind="mass-mean").build()
+    assert isinstance(r.probe_a, probes.SupervisedBeliefProbe)
+    v1, v2, gt = r.verdicts("native")
+    assert set(np.unique(v1)) <= {0, 1}

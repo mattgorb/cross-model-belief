@@ -13,6 +13,7 @@ written, so a negative result stays legible instead of being reframed.
 | datasets | |
 | N per dataset | |
 | layer | |
+| probe (`--probe`) | |
 | commit | |
 
 ## Decision-tree classification
@@ -38,6 +39,7 @@ Circle one (DESIGN.md §7):
 | Gate A | probe − confidence AUROC on the confident slice (per model) | | |
 | Gate B | native − transfer AUROC, both directions | | |
 | Gate B context | linear CKA, map R² | | |
+| Gate B | `eps` — FP inflation at matched positive rate, both directions | | |
 
 ## Experiment 1 — the headline
 
@@ -47,6 +49,28 @@ Circle one (DESIGN.md §7):
 | Qwen-7B ↔ Llama-8B | cross-family | | | | |
 
 Floor or ceiling (§2.3)? Does Row 2 drop cross-family?
+
+### The decomposition (DESIGN.md §2.4)
+
+A rate without its bounds does not distinguish "accurate probes" from
+"independent probes". Fill both rows per pair:
+
+| pair | p1 | p2 | FA | p1·p2 (indep.) | Fréchet [lo, hi] | rho | rho / rho_max | coverage |
+|---|---|---|---|---|---|---|---|---|
+| same-family | | | | | | | | |
+| cross-family | | | | | | | | |
+
+Prediction to check (paper/PLAN.md §3): same-family near the upper bound;
+cross-family partly decorrelated but **not** independent. Was it right?
+
+### The cost of transport
+
+| pair | direction | eps | rho native → transported | FA native → transported |
+|---|---|---|---|---|
+| | A→B | | | |
+| | B→A | | | |
+
+Does the map inflate `rho` on top of the error rate, and by how much?
 
 ## Experiment 2 — transport-robust core
 
@@ -63,6 +87,24 @@ IMDB → TruthfulQA explicitly, and the held-out model pair with its anchor-map 
 
 Where the belief signal peaks vs where false-agreement structure peaks. If they
 differ, say so and do not tune one at the other's depth.
+
+## Experiment 6 — post-training control
+
+Transport gap at `final` vs the mid-depth site, base ↔ instruct. If the last layer
+is worse, maps belong at the probe's own layer and every table needs its layer
+stated. This pair's `eps` is also the floor every other pair inherits.
+
+## Probe types
+
+Same activations, same layer: CCS against mass-mean and LR. Does the unsupervised
+case reach the supervised baselines, and is LR redundant with mass-mean as
+expected?
+
+| probe | AUROC (native) | Row-2 rate | rho / rho_max |
+|---|---|---|---|
+| ccs | | | |
+| mass-mean | | | |
+| lr | | | |
 
 ## Threats to validity as they actually bit
 

@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars and fill in. *.tfvars is gitignored.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init && terraform apply
+
+key_name = "my-ec2-keypair"        # must already exist in this region
+my_ip    = "1.2.3.4/32"            # curl -s ifconfig.me
+
+# <=8B work (default). For the 32B fp16 extraction pass:
+# instance_type = "g5.12xlarge"
+
+# region         = "us-east-1"
+# data_volume_gb = 300
+# max_spot_price = "3.00"
+
+# Reattach the volume from a previous run instead of creating a fresh one:
+# existing_data_volume_id = "vol-0123456789abcdef0"
+# availability_zone       = "us-east-1a"   # must match that volume's AZ
