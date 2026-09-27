@@ -89,9 +89,16 @@ class HFModel:
         self.lm = None
         for loader in loaders:
             try:
-                self.lm = loader.from_pretrained(
-                    hf_name, torch_dtype=torch.float16, device_map=device_map,
-                    output_hidden_states=True)
+                # `output_hidden_states` belongs on the forward call, not here:
+                # the ...ForConditionalGeneration wrappers route unknown kwargs
+                # into the generation config and ignore it, which left
+                # `out.hidden_states` as None. `dtype` replaced `torch_dtype`.
+                try:
+                    self.lm = loader.from_pretrained(
+                        hf_name, dtype=torch.float16, device_map=device_map)
+                except TypeError:                # transformers < 4.56
+                    self.lm = loader.from_pretrained(
+                        hf_name, torch_dtype=torch.float16, device_map=device_map)
                 break
             except (ValueError, KeyError, OSError) as e:
                 errs.append(f"{loader.__name__}: {type(e).__name__}: {e}")
@@ -126,7 +133,13 @@ class HFModel:
         with torch.no_grad():
             ids = self.tok(text, return_tensors="pt", truncation=True,
                            max_length=MAX_LENGTH).to(self.lm.device)
-            out = self.lm(**ids)
+            out = self.lm(**ids, output_hidden_states=True)
+            if out.hidden_states is None:
+                raise RuntimeError(
+                    f"{self.key}: the model returned no hidden states. The "
+                    f"forward call asks for them explicitly, so this means the "
+                    f"architecture ignores the flag — check whether the wrapper "
+                    f"needs the language submodule called directly.")
             mask = ids["attention_mask"][0].bool()
             mean, last = {}, {}
             for li in layers:
@@ -171,7 +184,7 @@ class HFModel:
                            max_length=MAX_LENGTH, return_offsets_mapping=True)
             offsets = enc.pop("offset_mapping")[0].numpy()
             enc = {k: v.to(self.lm.device) for k, v in enc.items()}
-            out = self.lm(**enc)
+            out = self.lm(**enc, output_hidden_states=True)
             keep = offsets[:, 1] > offsets[:, 0]
             if "attention_mask" in enc:
                 keep &= enc["attention_mask"][0].bool().cpu().numpy()
