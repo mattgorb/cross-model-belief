@@ -47,29 +47,49 @@ def _finalize(items: list[Item], n: int | None, seed: int = SEED) -> list[Item]:
 # ---------------------------------------------------------------------------
 
 def _load_geometry_of_truth(n):
-    """Marks & Tegmark curated true/false statements — the primary set."""
-    from datasets import load_dataset
+    """Marks & Tegmark curated true/false statements — the primary set.
 
-    items = []
-    # The GoT release is a set of per-topic csv files of (statement, label).
-    for cfg in ["cities", "sp_en_trans", "larger_than", "companies_true_false"]:
+    Read straight from the paper's repo (`saprmarks/geometry-of-truth`), which is
+    a set of per-topic CSVs of (statement, label). The HF community mirrors that
+    used to hold these are 401 now, and the raw CSVs are the authoritative copy
+    anyway. Set `CMB_GOT_DIR` to a local clone's `datasets/` folder to work
+    offline.
+    """
+    import csv
+    import io
+    import os
+    import urllib.request
+
+    GOT_RAW = ("https://raw.githubusercontent.com/saprmarks/geometry-of-truth"
+               "/main/datasets")
+    # One topic per file; these four are the ones the paper trains probes on.
+    topics = ["cities", "sp_en_trans", "larger_than", "companies_true_false"]
+    local = os.environ.get("CMB_GOT_DIR")
+
+    items, failures = [], []
+    for topic in topics:
         try:
-            ds = load_dataset("notrichardren/gt_cities" if cfg == "cities"
-                              else f"notrichardren/gt_{cfg}", split="train")
-        except Exception:
+            if local:
+                text = (Path(local) / f"{topic}.csv").read_text()
+            else:
+                with urllib.request.urlopen(f"{GOT_RAW}/{topic}.csv", timeout=30) as r:
+                    text = r.read().decode("utf-8")
+        except Exception as e:
+            failures.append(f"{topic}: {type(e).__name__}: {e}")
             continue
-        for i, r in enumerate(ds):
-            stmt = r.get("statement") or r.get("claim") or r.get("text")
-            lab = r.get("label", r.get("truth"))
-            if stmt is None or lab is None:
+        for i, row in enumerate(csv.DictReader(io.StringIO(text))):
+            stmt = row.get("statement") or row.get("claim") or row.get("text")
+            lab = row.get("label", row.get("truth"))
+            if not stmt or lab is None or str(lab).strip() == "":
                 continue
-            items.append(Item(f"got/{cfg}/{i}", str(stmt), int(lab),
-                              "geometry_of_truth", group=f"got/{cfg}/{i}"))
+            items.append(Item(f"got/{topic}/{i}", str(stmt).strip(), int(lab),
+                              "geometry_of_truth", group=f"got/{topic}/{i}"))
     if not items:
         raise RuntimeError(
-            "Geometry of Truth not reachable from the HF hub. Clone "
-            "github.com/saprmarks/geometry_of_truth and point CMB_GOT_DIR at "
-            "its datasets/ folder, or run with --synthetic.")
+            "Geometry of Truth not reachable. Clone "
+            "github.com/saprmarks/geometry-of-truth and set CMB_GOT_DIR to its "
+            "datasets/ folder, or run with --synthetic. Tried:\n  "
+            + "\n  ".join(failures))
     return _finalize(items, n)
 
 
@@ -81,7 +101,7 @@ def _load_truthfulqa(n):
     """
     from datasets import load_dataset
 
-    ds = load_dataset("truthful_qa", "generation", split="validation")
+    ds = load_dataset("truthfulqa/truthful_qa", "generation", split="validation")
     items = []
     for i, r in enumerate(ds):
         q = r["question"]
