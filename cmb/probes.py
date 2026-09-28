@@ -69,15 +69,36 @@ class CCSProbe(nn.Module):
 
     # -- fitting ------------------------------------------------------------
 
+    # A restart whose beliefs are this flat across items is the degenerate
+    # solution, not a probe: it has learned the half-identity, not the claim.
+    MIN_BELIEF_SPREAD = 0.02
+
     def fit(self, Xp: np.ndarray, Xn: np.ndarray, epochs: int = 1000,
             lr: float = 1e-3, ntries: int = 10, weight_decay: float = 0.0,
             seed: int = SEED) -> float:
-        """Fit with restarts (CCS is notoriously seed-sensitive)."""
+        """Fit with restarts (CCS is notoriously seed-sensitive).
+
+        Restarts are ranked by loss *among non-degenerate solutions only*, which
+        matters because the two are ordered the wrong way round. A probe that
+        reads whatever distinguishes the "Yes" half from the "No" half outputs
+        p+ ~ 1 and p- ~ 0 on every item: consistency loss ~ 0, confidence loss
+        ~ 0, so it attains a *lower* loss than any probe that actually tracks the
+        claim (measured: ~1e-4 against ~1e-2). Picking the minimum-loss restart
+        therefore selects the useless probe, and does so silently -- the fit looks
+        excellent and AUROC sits at chance. Observed flipping one cell between
+        0.43 and 0.98 across splits.
+
+        The filter is label-free: the degenerate solution is constant across
+        items, so its belief spread collapses. Falls back to plain minimum loss
+        if every restart looks degenerate, and says so.
+        """
         self._norm_p, self._norm_n = paired_standardizers(Xp, Xn)
         tp = torch.tensor(self._norm_p(Xp), dtype=torch.float32)
         tn = torch.tensor(self._norm_n(Xn), dtype=torch.float32)
         g = torch.Generator().manual_seed(seed)
         best_state, best_loss = None, float("inf")
+        fallback_state, fallback_loss = None, float("inf")
+        n_degenerate = 0
         for t in range(ntries):
             with torch.no_grad():
                 bound = 1.0 / np.sqrt(self.w.in_features)
@@ -93,10 +114,26 @@ class CCSProbe(nn.Module):
                 loss = ((pp - (1 - pn)) ** 2).mean() + torch.min(pp, pn).pow(2).mean()
                 loss.backward()
                 opt.step()
+            with torch.no_grad():
+                pp = torch.sigmoid(self.w(tp)).squeeze(-1)
+                pn = torch.sigmoid(self.w(tn)).squeeze(-1)
+                spread = float((0.5 * (pp + (1 - pn))).std())
+            state = {k: v.detach().clone() for k, v in self.state_dict().items()}
+            if loss.item() < fallback_loss:
+                fallback_loss, fallback_state = loss.item(), state
+            if spread < self.MIN_BELIEF_SPREAD:
+                n_degenerate += 1
+                continue
             if loss.item() < best_loss:
-                best_loss = loss.item()
-                best_state = {k: v.detach().clone() for k, v in self.state_dict().items()}
+                best_loss, best_state = loss.item(), state
+
+        if best_state is None:
+            print(f"  WARNING: all {ntries} CCS restarts are degenerate (belief "
+                  f"spread < {self.MIN_BELIEF_SPREAD}); the probe is reading the "
+                  f"half-identity, not the claim. Treat its AUROC as chance.")
+            best_state, best_loss = fallback_state, fallback_loss
         self.load_state_dict(best_state)
+        self.n_degenerate_restarts = n_degenerate
         return best_loss
 
     # -- inference ----------------------------------------------------------

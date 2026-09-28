@@ -15,22 +15,42 @@ import numpy as np
 
 @dataclass
 class LinearMap:
-    """Ridge map from A-space to B-space, fitted on paired activations."""
+    """Ridge map from A-space to B-space, fitted on paired activations.
+
+    Both spaces are standardized *per dimension* before the fit and destandardized
+    after. This is not cosmetic: LLM activations contain a handful of massive
+    dimensions whose scale dwarfs the rest (measured on qwen3-8b, the largest
+    per-dimension std is 542x the median at 0.5 depth, and the variance has an
+    effective rank of ~1). Mean-centering alone leaves them, and then both the
+    least-squares objective and the R^2 that scores it are answering "did you
+    predict the one giant dimension", which is easy and uninformative. Scaling
+    makes the map fit the directions that actually distinguish items.
+    """
     W: np.ndarray            # [d_a, d_b]
     b: np.ndarray            # [d_b]
     mu_a: np.ndarray
     mu_b: np.ndarray
     alpha: float
+    sd_a: np.ndarray | None = None   # None = a legacy mean-centred-only map
+    sd_b: np.ndarray | None = None
 
     def __call__(self, Xa: np.ndarray) -> np.ndarray:
-        return (Xa - self.mu_a) @ self.W + self.mu_b + self.b
+        if self.sd_a is None:
+            return (Xa - self.mu_a) @ self.W + self.mu_b + self.b
+        z = (Xa - self.mu_a) / self.sd_a
+        return (z @ self.W + self.b) * self.sd_b + self.mu_b
 
     def r2(self, Xa: np.ndarray, Xb: np.ndarray) -> float:
-        """Fraction of B's variance the map explains — how much got carried."""
-        pred = self(Xa)
-        ss_res = ((Xb - pred) ** 2).sum()
-        ss_tot = ((Xb - Xb.mean(0)) ** 2).sum()
-        return float(1 - ss_res / ss_tot)
+        """Fraction of B's variance the map explains — how much got carried.
+
+        Scored per dimension on the map's own scale, so a few massive dimensions
+        cannot carry the number. On raw activations this reads 0.99 at mid-depth
+        purely because one dimension holds nearly all the variance.
+        """
+        pred, Xb = self(Xa), np.asarray(Xb, dtype=float)
+        sd = self.sd_b if self.sd_b is not None else 1.0
+        res, tgt = (Xb - pred) / sd, (Xb - Xb.mean(0)) / sd
+        return float(1 - (res ** 2).sum() / (tgt ** 2).sum())
 
 
 ALPHA_GRID = (1e-3, 1e-2, 1e-1, 1.0, 10.0)
@@ -55,7 +75,8 @@ def fit_map(Xa: np.ndarray, Xb: np.ndarray,
     memorizing the pairs rather than carrying structure.
     """
     mu_a, mu_b = Xa.mean(0), Xb.mean(0)
-    A, B = Xa - mu_a, Xb - mu_b
+    sd_a, sd_b = Xa.std(0) + 1e-6, Xb.std(0) + 1e-6
+    A, B = (Xa - mu_a) / sd_a, (Xb - mu_b) / sd_b
     if alpha is None:
         rng = np.random.default_rng(seed)
         idx = rng.permutation(len(A))
@@ -71,7 +92,8 @@ def fit_map(Xa: np.ndarray, Xb: np.ndarray,
                     best, best_r2 = cand, r2
         alpha = best
     W = _solve(A, B, alpha)
-    return LinearMap(W=W, b=np.zeros(Xb.shape[1]), mu_a=mu_a, mu_b=mu_b, alpha=alpha)
+    return LinearMap(W=W, b=np.zeros(Xb.shape[1]), mu_a=mu_a, mu_b=mu_b,
+                     alpha=alpha, sd_a=sd_a, sd_b=sd_b)
 
 
 def fit_map_both_ways(Xa, Xb, alpha: float | None = None):
@@ -79,14 +101,35 @@ def fit_map_both_ways(Xa, Xb, alpha: float | None = None):
     return fit_map(Xa, Xb, alpha), fit_map(Xb, Xa, alpha)
 
 
-def linear_cka(X: np.ndarray, Y: np.ndarray) -> float:
+def linear_cka(X: np.ndarray, Y: np.ndarray, standardize: bool = False) -> float:
     """Linear CKA between two activation sets over the same items.
 
     Reported as *context* for a transfer number, never as a result on its own:
     the HELIX finding is that tokenizer compatibility and size gap drive
     alignment, so a weak cross-family transfer with low CKA is a map problem,
     not necessarily a probe problem.
+
+    **Read it knowing what dominates it.** CKA weights directions by variance, and
+    LLM activations carry a few massive dimensions that hold nearly all of it (on
+    qwen3-8b the largest per-dimension std is 542x the median at 0.5 depth, where
+    the variance has an effective rank of ~1). So CKA largely reports what *those*
+    dimensions do. Measured on qwen3-8b vs qwen3-32b it falls 0.998 -> 0.786 from
+    mid-depth to the final layer, which reads as representational divergence but
+    is mostly the massive dimensions shrinking with depth: per-dimension
+    standardized, the same pair is flat (0.983 / 0.976 / 0.978), and the
+    transported probe loses nothing at the final layer either.
+
+    `standardize=True` gives that scale-free variant. It is a *different measure*,
+    not a corrected one — standardizing axes destroys the invariance to rotation
+    that makes CKA a representational-similarity measure at all — so it belongs
+    beside the raw number as a diagnostic, never as a replacement. The map
+    (`fit_map`) standardizes unconditionally, which is a separate matter: there it
+    is regression preconditioning and no invariance is claimed.
     """
+    X, Y = np.asarray(X, dtype=float), np.asarray(Y, dtype=float)
+    if standardize:
+        X = X / (X.std(0) + 1e-6)
+        Y = Y / (Y.std(0) + 1e-6)
     X = X - X.mean(0)
     Y = Y - Y.mean(0)
     hsic = np.linalg.norm(X.T @ Y, "fro") ** 2

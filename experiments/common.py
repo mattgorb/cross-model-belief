@@ -20,8 +20,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cmb import align, metrics, probes                     # noqa: E402
-from cmb.config import (DEFAULT_LAYER_SPEC, PAIRS, RESULTS_DIR,  # noqa: E402
-                        SEED, TEST_FRAC, pair_kind, resolve_layer)
+from cmb.config import (DEFAULT_LAYER_SPEC, MATRIX_DATASETS, PAIRS,  # noqa: E402
+                        RESULTS_DIR, SEED, TEST_FRAC, pair_kind, resolve_layer)
 from cmb.data import load_items, split_items               # noqa: E402
 from cmb.extract import paired                             # noqa: E402
 
@@ -45,6 +45,11 @@ def base_parser(description: str) -> argparse.ArgumentParser:
                    help="override the layer for model A (same formats)")
     p.add_argument("--layer-b", default=None,
                    help="override the layer for model B (same formats)")
+    p.add_argument("--map-datasets", default="all",
+                   help="datasets to fit the alignment map on, comma-separated, "
+                        "or 'all' (the default) for every cached one, or 'self' "
+                        "to use only --dataset. The map needs no labels, and it "
+                        "is badly underdetermined on one dataset alone.")
     p.add_argument("--pooling", default="mean", choices=["mean", "last"],
                    help="which cached pooling to read: 'mean' over the whole "
                         "prompt (the alignment setting) or 'last', the Yes/No "
@@ -59,6 +64,17 @@ def base_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--refresh", action="store_true", help="ignore cached activations")
     p.add_argument("--tag", default="", help="suffix for the results filename")
     return p
+
+
+def map_datasets(args) -> tuple:
+    """Which datasets the alignment map may be fitted on (never labels, never
+    the scored dataset's test items)."""
+    spec = getattr(args, "map_datasets", "all")
+    if spec in ("self", "none", ""):
+        return ()
+    if spec == "all":
+        return tuple(MATRIX_DATASETS)
+    return tuple(d.strip() for d in spec.split(",") if d.strip())
 
 
 def parse_n(args) -> int | None:
@@ -90,7 +106,8 @@ def make_run(a: str, b: str, args, dataset: str | None = None,
     return PairRun(a, b, dataset or args.dataset, la, lb, parse_n(args),
                    args.synthetic, args.seed,
                    probe_kind=getattr(args, "probe", "ccs"),
-                   pooling=getattr(args, "pooling", "mean"))
+                   pooling=getattr(args, "pooling", "mean"),
+                   map_datasets=map_datasets(args))
 
 
 def write_result(name: str, payload: dict, tag: str = "") -> Path:
@@ -140,6 +157,8 @@ class PairRun:
     test_frac: float = TEST_FRAC
     probe_kind: str = "ccs"
     pooling: str = "mean"
+    # Extra datasets to fit the alignment map on (unlabeled; test items excluded).
+    map_datasets: tuple = ()
 
     # filled by build()
     layer_a: int = field(init=False, default=0)
@@ -189,11 +208,45 @@ class PairRun:
         return p
 
     def _fit_maps(self) -> None:
-        """Maps are fitted on pos and neg halves jointly (the probe sees both)."""
-        Xa = np.concatenate([self.acts_a.pos[self.layer_a][self.tr],
-                             self.acts_a.neg[self.layer_a][self.tr]])
-        Xb = np.concatenate([self.acts_b.pos[self.layer_b][self.tr],
-                             self.acts_b.neg[self.layer_b][self.tr]])
+        """Fit A<->B on pos and neg halves jointly (the probe reads both).
+
+        The map needs **no labels** — only the same inputs through both models —
+        so restricting it to this dataset's labeled train split was leaving most of
+        the available data unused. With `map_datasets` it is fitted on every cached
+        dataset the pair shares, holding this dataset's *test* items out so nothing
+        the map saw is scored.
+
+        It matters more than it sounds: the map has d_a x d_b parameters (21M for
+        4096 -> 5120) against a few thousand rows, so it is badly underdetermined
+        and the fit is data-limited rather than geometry-limited. Measured on
+        qwen3-8b -> qwen3-32b at the final layer, standardized held-out R^2 goes
+        0.695 (3k rows) -> 0.759 (6k) -> 0.815 (12k) -> 0.832 (16k), still rising.
+        """
+        Xa = [self.acts_a.pos[self.layer_a][self.tr],
+              self.acts_a.neg[self.layer_a][self.tr]]
+        Xb = [self.acts_b.pos[self.layer_b][self.tr],
+              self.acts_b.neg[self.layer_b][self.tr]]
+
+        held_out = set(np.asarray(self.acts_a.item_ids)[self.te])
+        for ds in self.map_datasets or ():
+            if ds == self.dataset:
+                continue
+            try:
+                a, b = paired(self.model_a, self.model_b, ds, None,
+                              synthetic=self.synthetic,
+                              layer_a=(self.layer_a_spec,),
+                              layer_b=(self.layer_b_spec,))
+            except Exception as e:            # a dataset this pair never cached
+                print(f"  [map] skipping {ds}: {type(e).__name__}")
+                continue
+            keep = np.array([i not in held_out for i in a.item_ids])
+            la = resolve_layer(self.layer_a_spec, a.n_layers)
+            lb = resolve_layer(self.layer_b_spec, b.n_layers)
+            Xa += [a.pos[la][keep], a.neg[la][keep]]
+            Xb += [b.pos[lb][keep], b.neg[lb][keep]]
+
+        Xa, Xb = np.concatenate(Xa), np.concatenate(Xb)
+        self.map_rows = len(Xa)
         self.map_ab, self.map_ba = align.fit_map_both_ways(Xa, Xb)
 
     # -- accessors ----------------------------------------------------------
