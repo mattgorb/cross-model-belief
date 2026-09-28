@@ -113,7 +113,7 @@ CROSS_FAMILY_PAIR = ("qwen3-8b", "gemma4-12b")      # family; both reasoning-era
 CROSS_ERA_PAIR = ("qwen3-8b", "llama-8b")           # size-matched, but family AND era
 CROSS_GENERATION_PAIR = ("qwen3-8b", "qwen38-27b")  # same family, newest generation
 CROSS_FAMILY_LARGE_PAIR = ("qwen3-32b", "gemma4-31b")   # cross-family at matched size
-HELD_OUT_PAIR = ("qwen3-4b", "gemma4-12b")          # never used to fit anything
+HELD_OUT_PAIR = ("qwen3-1.7b", "olmo3-7b")          # never used to fit anything
 WEAK_STRONG_PAIR = ("qwen3-1.7b", "qwen3-32b")      # fit where labels are cheap
 # Base <-> instruct, same weights up to post-training: Experiment 6.
 POST_TRAINING_PAIR = ("qwen3-8b-base", "qwen3-8b")

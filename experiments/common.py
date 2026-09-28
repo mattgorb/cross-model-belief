@@ -31,7 +31,12 @@ def base_parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--pair", default="cross-family",
                    help="named pair (same-family|cross-family|held-out) or 'a,b'")
     p.add_argument("--dataset", default="truthfulqa")
-    p.add_argument("--n", type=int, default=800, help="items per dataset")
+    p.add_argument("--n", default="all",
+                   help="items per dataset, or 'all' (the default) to use every "
+                        "cached item. This is part of the cache filename, so it "
+                        "has to match what was extracted — a mismatch is a cache "
+                        "miss, and on a machine with no GPU that means trying to "
+                        "download a model.")
     p.add_argument("--layer", default=DEFAULT_LAYER_SPEC,
                    help="probe layer for both models: 'final' (default), a "
                         "depth fraction like 0.6, a negative index like -3, or "
@@ -56,6 +61,12 @@ def base_parser(description: str) -> argparse.ArgumentParser:
     return p
 
 
+def parse_n(args) -> int | None:
+    """`--n all` -> None, which is how the cache spells 'every item'."""
+    v = getattr(args, "n", "all")
+    return None if str(v).lower() in ("all", "none", "-1") else int(v)
+
+
 def layer_specs(args) -> tuple[str, str]:
     """(layer_a, layer_b) from the CLI, each falling back to --layer."""
     return (args.layer_a or args.layer, args.layer_b or args.layer)
@@ -76,7 +87,7 @@ def make_run(a: str, b: str, args, dataset: str | None = None,
     reaches every experiment at once instead of being threaded by hand.
     """
     la, lb = layers if layers is not None else layer_specs(args)
-    return PairRun(a, b, dataset or args.dataset, la, lb, args.n,
+    return PairRun(a, b, dataset or args.dataset, la, lb, parse_n(args),
                    args.synthetic, args.seed,
                    probe_kind=getattr(args, "probe", "ccs"),
                    pooling=getattr(args, "pooling", "mean"))

@@ -423,3 +423,36 @@ def test_long_claims_keep_the_question_and_verdict():
     assert tok.decode(ids_p[-1:]).strip() == "Yes"
     assert tok.decode(ids_n[-1:]).strip() == "No"
     assert ids_p[-1] != ids_n[-1]
+
+
+def test_ccs_normalizes_each_contrast_half_separately():
+    """The two halves differ by one token, so a shared normalizer is fatal.
+
+    With one normalizer for both halves, `pos - neg` keeps a large constant
+    direction (the ` Yes`/` No` token identity, ~1.7x the item-to-item variation
+    on real activations). CCS can then drive both loss terms to zero by reading
+    that alone -- p+ ~ 1 and p- ~ 0 on every item is perfectly consistent and
+    perfectly confident while carrying no information about truth. The fit looks
+    healthy and the probe scores at chance.
+    """
+    from cmb.extract import get_activations
+
+    acts = get_activations("qwen3-8b", "geometry_of_truth", 600, synthetic=True)
+    layer = max(acts.layers)
+    y = acts.labels
+    tr = np.zeros(len(y), bool)
+    tr[: len(y) // 2] = True
+
+    p = CCSProbe(acts.pos[layer].shape[1])
+    p.fit(acts.pos[layer][tr], acts.neg[layer][tr], epochs=300, ntries=3)
+    p.resolve_sign(acts.pos[layer][tr], acts.neg[layer][tr], y[tr])
+
+    # two normalizers, not one, and they must actually differ
+    assert p._norm_p is not None and p._norm_n is not None
+    probe_a = p._norm_p(acts.pos[layer][~tr])
+    probe_b = p._norm_n(acts.pos[layer][~tr])
+    assert not np.allclose(probe_a, probe_b), "both halves share a normalizer"
+
+    belief = p.belief(acts.pos[layer][~tr], acts.neg[layer][~tr])
+    assert metrics.auroc(belief, y[~tr]) > 0.7, (
+        "CCS is at chance on planted structure — check the normalization")

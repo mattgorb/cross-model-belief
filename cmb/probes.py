@@ -33,6 +33,24 @@ def standardizer(X: np.ndarray):
     return lambda Z: (Z - mu) / sd
 
 
+def paired_standardizers(Xp: np.ndarray, Xn: np.ndarray):
+    """One normalizer per half of the contrast pair (Burns et al. 2022, §3.2).
+
+    This is not a detail. The two halves differ by a single token (` Yes` vs
+    ` No`), so `Xp - Xn` contains a large *constant* direction that is the same
+    for every item -- measured on Geometry of Truth it is ~1.7x the size of the
+    item-to-item variation. Normalizing both halves with one shared mean leaves
+    that direction in place, and CCS can then drive both of its loss terms to zero
+    by reading it alone: p+ ~ 1 and p- ~ 0 on every item is perfectly consistent
+    and perfectly confident while carrying no information about truth. The probe
+    scores at chance and the fit looks healthy.
+
+    Subtracting each half's own mean deletes the direction, which is what forces
+    the consistency loss to be satisfied by something item-specific.
+    """
+    return standardizer(Xp), standardizer(Xn)
+
+
 class CCSProbe(nn.Module):
     """Contrast-Consistent Search (Burns et al. 2022).
 
@@ -47,7 +65,7 @@ class CCSProbe(nn.Module):
         super().__init__()
         self.w = nn.Linear(d, 1)
         self.sign = 1.0
-        self._norm = None
+        self._norm_p = self._norm_n = None
 
     # -- fitting ------------------------------------------------------------
 
@@ -55,9 +73,9 @@ class CCSProbe(nn.Module):
             lr: float = 1e-3, ntries: int = 10, weight_decay: float = 0.0,
             seed: int = SEED) -> float:
         """Fit with restarts (CCS is notoriously seed-sensitive)."""
-        self._norm = standardizer(np.concatenate([Xp, Xn], 0))
-        tp = torch.tensor(self._norm(Xp), dtype=torch.float32)
-        tn = torch.tensor(self._norm(Xn), dtype=torch.float32)
+        self._norm_p, self._norm_n = paired_standardizers(Xp, Xn)
+        tp = torch.tensor(self._norm_p(Xp), dtype=torch.float32)
+        tn = torch.tensor(self._norm_n(Xn), dtype=torch.float32)
         g = torch.Generator().manual_seed(seed)
         best_state, best_loss = None, float("inf")
         for t in range(ntries):
@@ -84,8 +102,10 @@ class CCSProbe(nn.Module):
     # -- inference ----------------------------------------------------------
 
     @torch.no_grad()
-    def _raw(self, X: np.ndarray) -> np.ndarray:
-        Z = self._norm(X) if self._norm is not None else X
+    def _raw(self, X: np.ndarray, half: str) -> np.ndarray:
+        """`half` picks the normalizer; each half has its own by construction."""
+        norm = self._norm_p if half == "pos" else self._norm_n
+        Z = norm(X) if norm is not None else X
         t = torch.tensor(Z, dtype=torch.float32)
         return torch.sigmoid(self.w(t)).squeeze(-1).numpy()
 
@@ -95,9 +115,9 @@ class CCSProbe(nn.Module):
         With both halves supplied we use the CCS-consistent average
         (p+ + (1 - p-)) / 2, which is lower-variance than either half alone.
         """
-        p = self._raw(Xp)
+        p = self._raw(Xp, "pos")
         if Xn is not None:
-            p = 0.5 * (p + (1 - self._raw(Xn)))
+            p = 0.5 * (p + (1 - self._raw(Xn, "neg")))
         return p if self.sign > 0 else 1 - p
 
     def vote(self, Xp, Xn=None, threshold: float = 0.5) -> np.ndarray:
