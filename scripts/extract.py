@@ -29,6 +29,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from cmb.cache import cache_path, load
 from cmb.config import CACHE_DIR, DATASETS, LAYER_SWEEP, MODELS
 from cmb.extract import get_activations
+from cmb.models import load_backend
+
+
+def _release(backend) -> None:
+    """Drop a model's weights before loading the next one.
+
+    Without this the next `from_pretrained` finds the card already full, silently
+    offloads layers to CPU ("Some parameters are on the meta device"), and then
+    dies part-way through the pass.
+    """
+    if backend is None:
+        return
+    lm = getattr(backend, "lm", None)
+    if lm is not None:
+        del lm
+        del backend.lm
+    import gc
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+    except ImportError:
+        pass
 
 
 def human(nbytes: float) -> str:
@@ -98,6 +125,12 @@ def main() -> int:
 
     failures = []
     for model in models:
+        # One backend per model, reused across its datasets. Loading it per
+        # dataset leaked the previous copy's VRAM: with a 27B across four
+        # datasets the second load has no room left, falls back to CPU offload,
+        # and then OOMs mid-pass. It also pays the load cost once instead of
+        # once per dataset.
+        backend = None
         for ds in datasets:
             key = f"synthetic-{model}" if args.synthetic else model
             path = cache_path(key, ds, args.n)
@@ -108,8 +141,11 @@ def main() -> int:
             print(f"\n=== {model} / {ds} (n={args.n}) ===")
             t0 = time.time()
             try:
+                if backend is None:
+                    backend = load_backend(model, synthetic=args.synthetic)
                 acts = get_activations(model, ds, args.n, synthetic=args.synthetic,
-                                       refresh=args.refresh, extra_layers=extra)
+                                       refresh=args.refresh, extra_layers=extra,
+                                       backend=backend)
             except Exception as e:
                 print(f"  FAILED: {type(e).__name__}: {e}")
                 failures.append((model, ds, f"{type(e).__name__}: {e}"))
@@ -119,6 +155,9 @@ def main() -> int:
             print(f"  {len(acts.item_ids)} items, {len(acts.layers)} layers, "
                   f"d={d}, {dt:.0f}s ({dt / max(len(acts.item_ids), 1):.2f}s/item)")
             print(f"  -> {path}  ({human(path.stat().st_size)})")
+
+        _release(backend)
+        backend = None
 
     if failures:
         print(f"\n{len(failures)} extraction(s) failed:")

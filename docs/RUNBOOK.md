@@ -155,6 +155,12 @@ deliberately left blank until Exp 1 has a number).
 
 ## Gotchas
 
+- **One backend per model, freed before the next.** `extract.py` loads a model
+  once and reuses it across that model's datasets. Loading per dataset leaked the
+  previous copy's VRAM, so the second load found the card full, silently offloaded
+  layers to CPU ("Some parameters are on the meta device") and then OOMed
+  mid-pass. If you see that message, weights are spilling to host RAM and the
+  pass will be slow or die.
 - **Extraction is unbatched** (one item per forward pass). Fine for N≈2000,
   slow past that; batching is the first optimization if you scale up.
 - **`--n` is in the cache key.** Extract at the largest N you intend to use;
