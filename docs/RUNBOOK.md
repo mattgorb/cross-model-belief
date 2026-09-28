@@ -164,5 +164,15 @@ deliberately left blank until Exp 1 has a number).
 - **The map is currently fitted on the labeled train split only** (~0.6×N pairs
   against d≈4096). Fitting it on a larger unlabeled corpus is the open
   improvement; until then read Gate B's map R² as a conditioning warning.
+- **`CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED` on a very new architecture.** Run
+  with `CMB_DISABLE_CUDNN=1`. Extraction is forward matmuls, so cuDNN is not
+  needed; the failure is a mismatch between the installed cuDNN build and an op
+  path the model wants, not a real dependency. Seen on `qwen38-27b` with the
+  torch 2.7 / CUDA 12.8 DLAMI.
+- **`CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED` on a very new architecture.** Run
+  with `CMB_DISABLE_CUDNN=1`. Extraction is forward matmuls, so cuDNN is not a
+  real dependency here; the failure is a mismatch between the installed cuDNN
+  build and an op path the model wants. Seen on `qwen38-27b` with the torch 2.7
+  / CUDA 12.8 DLAMI.
 - **Check `--list` before terminating a spot box.** It is the only thing
   standing between you and re-running the 32B pass.

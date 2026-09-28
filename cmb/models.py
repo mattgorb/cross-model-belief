@@ -55,8 +55,18 @@ class HFModel:
     """
 
     def __init__(self, key: str, device_map: str = "auto"):
+        import os
+
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        # Extraction is forward matmuls only, so cuDNN buys nothing here and can
+        # cost everything: some newer architectures hit op paths whose cuDNN
+        # sublibrary the installed build does not have
+        # (CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED), which kills the whole pass.
+        # CMB_DISABLE_CUDNN=1 routes around it without touching the driver.
+        if os.environ.get("CMB_DISABLE_CUDNN") == "1":
+            torch.backends.cudnn.enabled = False
 
         spec = MODELS[key] if key in MODELS else None
         hf_name = spec.hf_name if spec else key
