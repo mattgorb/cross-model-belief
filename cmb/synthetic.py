@@ -36,7 +36,8 @@ PRIVATE_DIM = 16         # model-specific structure the map cannot carry
 
 _DIMS = {"qwen3-1.7b": 80, "qwen3-1.7b-base": 80, "qwen3-4b": 96, "qwen3-8b": 128, "qwen3-8b-base": 128,
          "qwen3-32b": 160, "qwen38-27b": 160, "gemma4-12b": 144,
-         "gemma4-12b-base": 144, "olmo3-7b": 120, "llama-8b": 112, "llama-8b-base": 112}
+         "gemma4-12b-base": 144,
+         "gemma4-31b": 168, "gemma4-31b-base": 168, "olmo3-7b": 120, "llama-8b": 112, "llama-8b-base": 112}
 _FAMILY_SEED = {"qwen": 11, "llama": 29}
 
 

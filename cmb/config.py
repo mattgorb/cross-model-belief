@@ -81,6 +81,16 @@ MODELS = {
                   reasoning=True, multimodal=True),
         ModelSpec("gemma4-12b-base", "google/gemma-4-12B", "gemma", 48,
                   base=True, multimodal=True),
+        # The large-end cross-family partner for qwen3-32b: the only same-size
+        # cross-family pair on the board, which is what makes it possible to ask
+        # whether error correlation changes with scale at matched size. Note this
+        # is the regular Gemma 4 architecture, not the 12B's encoder-free
+        # `gemma4_unified` variant, so gemma-12b vs gemma-31b is not a clean
+        # within-family scale contrast.
+        ModelSpec("gemma4-31b", "google/gemma-4-31B-it", "gemma", 60,
+                  reasoning=True, multimodal=True),
+        ModelSpec("gemma4-31b-base", "google/gemma-4-31B", "gemma", 60,
+                  base=True, multimodal=True),
         # -- OLMo 3: a fourth family, and the only one whose pretraining corpus
         # is public. That makes it the one pair where "shared training data
         # drives the error correlation" is checkable rather than assumed.
@@ -102,6 +112,7 @@ SAME_FAMILY_PAIR = ("qwen3-8b", "qwen3-32b")        # scale only, one generation
 CROSS_FAMILY_PAIR = ("qwen3-8b", "gemma4-12b")      # family; both reasoning-era
 CROSS_ERA_PAIR = ("qwen3-8b", "llama-8b")           # size-matched, but family AND era
 CROSS_GENERATION_PAIR = ("qwen3-8b", "qwen38-27b")  # same family, newest generation
+CROSS_FAMILY_LARGE_PAIR = ("qwen3-32b", "gemma4-31b")   # cross-family at matched size
 HELD_OUT_PAIR = ("qwen3-4b", "gemma4-12b")          # never used to fit anything
 WEAK_STRONG_PAIR = ("qwen3-1.7b", "qwen3-32b")      # fit where labels are cheap
 # Base <-> instruct, same weights up to post-training: Experiment 6.
@@ -111,6 +122,7 @@ PAIRS = {
     "cross-family": CROSS_FAMILY_PAIR,
     "cross-era": CROSS_ERA_PAIR,
     "cross-generation": CROSS_GENERATION_PAIR,
+    "cross-family-large": CROSS_FAMILY_LARGE_PAIR,
     "held-out": HELD_OUT_PAIR,
     "weak-strong": WEAK_STRONG_PAIR,
     "post-training": POST_TRAINING_PAIR,
@@ -123,7 +135,8 @@ PAIRS = {
 }
 # The pairs that answer the floor-vs-ceiling question (`--pair all`); the
 # post-training pair is a control for Exp 6, not a point on that curve.
-RESEARCH_PAIRS = ("same-family", "cross-family", "cross-era", "held-out")
+RESEARCH_PAIRS = ("same-family", "cross-family", "cross-family-large",
+                  "cross-era", "held-out")
 
 # DESIGN.md §5. `truthfulqa` is the Row-2 enrichment set; `imdb` is the
 # sentiment-confound extreme; IMDB -> TruthfulQA is the headline honesty cell.
