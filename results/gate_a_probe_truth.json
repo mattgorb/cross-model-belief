@@ -1,0 +1,41 @@
+{
+  "pair": [
+    "qwen3-8b",
+    "llama-8b"
+  ],
+  "kind": "cross-family",
+  "dataset": "truthfulqa",
+  "layer": [
+    36,
+    32
+  ],
+  "slice_q": 0.5,
+  "models": [
+    {
+      "model": "qwen3-8b",
+      "n": 654,
+      "n_slice": 327,
+      "auroc_full": 0.7823322017413423,
+      "baseline_full": 0.7171253822629969,
+      "auroc_slice": 0.6870151906916613,
+      "baseline_slice": 0.5827811893988364,
+      "error_rate_slice": 0.345565749235474,
+      "edge_slice": 0.1042340012928249,
+      "passed": true
+    },
+    {
+      "model": "llama-8b",
+      "n": 654,
+      "n_slice": 328,
+      "auroc_full": 0.8157843054737256,
+      "baseline_full": 0.6106622151147022,
+      "auroc_slice": 0.8554234936822767,
+      "baseline_slice": 0.6975366502943271,
+      "error_rate_slice": 0.3780487804878049,
+      "edge_slice": 0.15788684338794956,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "written_at": "2026-09-29T00:33:54.611140+00:00"
+}

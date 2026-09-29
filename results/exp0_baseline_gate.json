@@ -1,0 +1,37 @@
+{
+  "pair": [
+    "qwen3-8b",
+    "llama-8b"
+  ],
+  "kind": "cross-family",
+  "dataset": "geometry_of_truth",
+  "layer": [
+    36,
+    32
+  ],
+  "n_test": 2012,
+  "auroc": {
+    "logprob_a": 0.9788394268774704,
+    "probe_a": 0.9895978260869566,
+    "logprob_b": 0.9930390316205533,
+    "probe_b": 0.9772826086956521
+  },
+  "routing": {
+    "logprob": {
+      "coverage": 0.6048707753479126,
+      "silent_error_rate": 0.06737880032867707,
+      "flagged_error_rate": 1.0,
+      "own_space_auroc": 0.9885884498113814
+    },
+    "activation": {
+      "coverage": 0.9284294234592445,
+      "silent_error_rate": 0.013918629550321198,
+      "flagged_error_rate": 1.0,
+      "own_space_auroc": 0.9370760682123013
+    }
+  },
+  "edge_single": 0.01075839920948618,
+  "edge_routing": 0.053460170778355874,
+  "passed": true,
+  "written_at": "2026-09-28T23:32:04.856140+00:00"
+}

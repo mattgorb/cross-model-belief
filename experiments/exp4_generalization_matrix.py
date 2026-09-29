@@ -15,6 +15,12 @@ direction are three separately fitted objects. Probes and maps are refit *per
 cell* on that cell's train split, so the only object that crosses a dataset
 boundary is the direction itself. Without this, a failed cell is unattributable.
 
+This is why the matrix forces `--map-datasets self`: elsewhere the map is fitted
+on every cached dataset, which is legitimate (it needs no labels) and buys real
+accuracy, but here it would let the map see the *target* dataset of every
+off-diagonal cell. Generalization would then be partly the map's, not the
+direction's. Pass `--allow-pooled-map` to override deliberately.
+
     python experiments/exp4_generalization_matrix.py --pair cross-family
     python experiments/exp4_generalization_matrix.py --pair cross-family --held-out-pair
 """
@@ -112,7 +118,14 @@ def main() -> int:
     ap.add_argument("--datasets", default=",".join(MATRIX_DATASETS))
     ap.add_argument("--held-out-pair", action="store_true",
                     help="also transfer the direction to the held-out model pair")
+    ap.add_argument("--allow-pooled-map", action="store_true",
+                    help="let the map see other datasets, breaking the "
+                         "attribution control (see the module docstring)")
     args = ap.parse_args()
+    if not args.allow_pooled_map and args.map_datasets != "self":
+        print("  [attribution control] forcing --map-datasets self so the "
+              "direction is the only object crossing a dataset boundary")
+        args.map_datasets = "self"
     pair = resolve_pair(args.pair)
     datasets = [d.strip() for d in args.datasets.split(",") if d.strip()]
 

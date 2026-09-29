@@ -1,0 +1,87 @@
+{
+  "pair": [
+    "qwen3-8b",
+    "qwen3-32b"
+  ],
+  "probe": "mass-mean",
+  "layer": "final",
+  "pooling": "mean",
+  "folds": [
+    {
+      "held_out": "geometry_of_truth",
+      "auroc": 0.702891156462585,
+      "shuffled": 0.6373840445269017,
+      "n_row2_fit": 551,
+      "n_row2_test": 30,
+      "n_both_true_test": 2186,
+      "pool": [
+        "truthfulqa",
+        "boolq",
+        "imdb",
+        "rte"
+      ],
+      "scoreable": true
+    },
+    {
+      "held_out": "truthfulqa",
+      "auroc": 0.614158829676071,
+      "shuffled": 0.4879501915708812,
+      "n_row2_fit": 781,
+      "n_row2_test": 220,
+      "n_both_true_test": 742,
+      "pool": [
+        "geometry_of_truth",
+        "boolq",
+        "imdb",
+        "rte"
+      ],
+      "scoreable": true
+    },
+    {
+      "held_out": "boolq",
+      "auroc": 0.6792452830188679,
+      "shuffled": 0.4066037735849057,
+      "n_row2_fit": 95,
+      "n_row2_test": 4,
+      "n_both_true_test": 110,
+      "pool": [
+        "geometry_of_truth",
+        "truthfulqa",
+        "imdb",
+        "rte"
+      ],
+      "scoreable": false
+    },
+    {
+      "held_out": "imdb",
+      "auroc": 0.7971309044149164,
+      "shuffled": 0.4150526189455636,
+      "n_row2_fit": 676,
+      "n_row2_test": 2333,
+      "n_both_true_test": 4833,
+      "pool": [
+        "geometry_of_truth",
+        "truthfulqa",
+        "boolq",
+        "rte"
+      ],
+      "scoreable": true
+    },
+    {
+      "held_out": "rte",
+      "auroc": 0.7505016722408027,
+      "shuffled": 0.4765217391304347,
+      "n_row2_fit": 835,
+      "n_row2_test": 23,
+      "n_both_true_test": 153,
+      "pool": [
+        "geometry_of_truth",
+        "truthfulqa",
+        "boolq",
+        "imdb"
+      ],
+      "scoreable": true
+    }
+  ],
+  "written_at": "2026-09-29T01:45:30.553195+00:00"
+}

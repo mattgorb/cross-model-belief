@@ -1,0 +1,21 @@
+{
+  "pair": [
+    "qwen3-8b",
+    "llama-8b"
+  ],
+  "kind": "cross-family",
+  "dataset": "truthfulqa",
+  "mode": "native",
+  "C": 0.1,
+  "n_train": 366,
+  "n_test": 242,
+  "row2_train": 77,
+  "row2_test": 55,
+  "auroc": 0.8992707826932426,
+  "shuffled_control": 0.5079047156052503,
+  "confidence_baseline": 0.6367525522605735,
+  "margin": 0.2625182304326691,
+  "separable": true,
+  "direction_norm": 0.9948848877008931,
+  "written_at": "2026-09-29T00:45:55.653404+00:00"
+}

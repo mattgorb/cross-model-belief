@@ -1,0 +1,54 @@
+{
+  "pair": [
+    "qwen3-32b",
+    "gemma4-31b"
+  ],
+  "probe": "mass-mean",
+  "layer": "final",
+  "pooling": "mean",
+  "folds": [
+    {
+      "held_out": "truthfulqa",
+      "auroc": 0.661083807935466,
+      "shuffled": 0.5294832898651006,
+      "n_row2_fit": 544,
+      "n_row2_test": 359,
+      "n_both_true_test": 830,
+      "pool": [
+        "geometry_of_truth",
+        "boolq",
+        "rte"
+      ],
+      "scoreable": true
+    },
+    {
+      "held_out": "boolq",
+      "auroc": 0.5600764428164072,
+      "shuffled": 0.5175276490851635,
+      "n_row2_fit": 276,
+      "n_row2_test": 1237,
+      "n_both_true_test": 3270,
+      "pool": [
+        "geometry_of_truth",
+        "truthfulqa",
+        "rte"
+      ],
+      "scoreable": true
+    },
+    {
+      "held_out": "rte",
+      "auroc": 0.8216638029782359,
+      "shuffled": 0.4845790378006873,
+      "n_row2_fit": 636,
+      "n_row2_test": 97,
+      "n_both_true_test": 241,
+      "pool": [
+        "geometry_of_truth",
+        "truthfulqa",
+        "boolq"
+      ],
+      "scoreable": true
+    }
+  ],
+  "written_at": "2026-09-29T01:49:09.835906+00:00"
+}
