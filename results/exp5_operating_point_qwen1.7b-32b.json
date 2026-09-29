@@ -1,0 +1,61 @@
+{
+  "pair": [
+    "qwen3-1.7b",
+    "qwen3-32b"
+  ],
+  "held_out": "truthfulqa",
+  "probe": "mass-mean",
+  "n_false": 817,
+  "row2": 260,
+  "router_catch": 308,
+  "base_rate": 0.37142857142857144,
+  "auroc": 0.5308479020979021,
+  "budgets": [
+    {
+      "budget": 0.05,
+      "routed": 35,
+      "row2_found": 20,
+      "recall_row2": 0.07692307692307693,
+      "precision": 0.5714285714285714,
+      "checks_per_hit": 1.75,
+      "total_caught": 0.401468788249694
+    },
+    {
+      "budget": 0.1,
+      "routed": 70,
+      "row2_found": 32,
+      "recall_row2": 0.12307692307692308,
+      "precision": 0.45714285714285713,
+      "checks_per_hit": 2.1875,
+      "total_caught": 0.41615667074663404
+    },
+    {
+      "budget": 0.2,
+      "routed": 140,
+      "row2_found": 55,
+      "recall_row2": 0.21153846153846154,
+      "precision": 0.39285714285714285,
+      "checks_per_hit": 2.5454545454545454,
+      "total_caught": 0.44430844553243576
+    },
+    {
+      "budget": 0.3,
+      "routed": 210,
+      "row2_found": 84,
+      "recall_row2": 0.3230769230769231,
+      "precision": 0.4,
+      "checks_per_hit": 2.5,
+      "total_caught": 0.47980416156670747
+    },
+    {
+      "budget": 0.5,
+      "routed": 350,
+      "row2_found": 135,
+      "recall_row2": 0.5192307692307693,
+      "precision": 0.38571428571428573,
+      "checks_per_hit": 2.5925925925925926,
+      "total_caught": 0.5422276621787026
+    }
+  ],
+  "written_at": "2026-09-29T11:31:41.433359+00:00"
+}
