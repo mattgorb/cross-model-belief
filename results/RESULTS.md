@@ -171,3 +171,181 @@ slowly — reaching 60% of Row 2 costs a 50% budget at 1.2× lift.
 Exp 2 (bidirectional — not applicable while verdicts are native), Exp 6
 (post-training control), the probe-comparison table as a formal experiment, and
 the mirrored feature space (A→B instead of B→A) as a robustness check.
+
+---
+
+# The full sweep (49 pairs)
+
+Everything above was five hand-picked pairs. This section is the sweep over every
+sensible (overseer, target) pair — 49 ordered pairs across 10 models and 5
+datasets, 587 + 585 rows, no failures. **It overturns several of the conclusions
+above, and those are marked.**
+
+Raw data: [`sweep_base_all.csv`](sweep_base_all.csv) (one row per pair x dataset)
+and [`sweep_loo_all.csv`](sweep_loo_all.csv) (one row per pair x held-out
+dataset). Regenerate with `scripts/sweep.py`, summarise with
+`scripts/summarize_sweep.py`.
+
+Pairs are *ordered*: the first model is the overseer, and it is never larger than
+the target, because a big model watching a small one is not the oversight
+question. Two simplifications relative to the single runs above: the ridge
+strength is fixed at 0.1 rather than searched per cell, and the map is fitted on
+the scored dataset alone rather than on all of them pooled. Both make the
+transport numbers pessimistic.
+
+*AUROC, throughout: pick one item with the property and one without; AUROC is how
+often the score ranks the right one higher. 0.5 is a coin flip.*
+
+## A. How often are both models wrong and agreeing?
+
+For every claim that is actually false, the probes either disagree (a router
+catches it) or **both say true** — both wrong, nobody flags it. `FA` is the size
+of that blind spot as a share of false claims. `rho/rho_max` says whether they
+are wrong for the *same reason* or by coincidence, scaled by the maximum the
+marginals allow. `coverage` is the share of the **target's** errors that
+disagreement catches.
+
+| dataset | FA same | FA cross | rho/max same | rho/max cross | coverage same | coverage cross |
+|---|---|---|---|---|---|---|
+| geometry_of_truth | 0.044 | 0.045 | **0.473** | 0.285 | 0.403 | 0.512 |
+| imdb | 0.097 | 0.061 | **0.624** | 0.337 | 0.384 | 0.577 |
+| boolq | 0.124 | 0.127 | 0.210 | 0.204 | 0.494 | 0.528 |
+| truthfulqa | 0.159 | 0.131 | 0.201 | 0.206 | 0.522 | 0.596 |
+| rte | 0.219 | 0.235 | 0.418 | 0.481 | 0.362 | 0.373 |
+
+**This overturns the FLOOR result above.** Across 49 pairs the blind spot does
+*not* reliably shrink cross-family: three of five datasets move by less than
+0.02. The five-pair version was not robust.
+
+What does hold is subtler and is the better claim: errors are less correlated
+cross-family (GoT 0.285 vs 0.473, IMDB 0.337 vs 0.624), and coverage of the
+target's errors is higher cross-family on **all five** datasets. The rate stays
+flat because cross-family pairs have higher *individual* error rates that cancel
+their lower correlation — the identity's two terms trading off, which is the
+argument for reporting the decomposition instead of the rate.
+
+## B. Is the probe reading truth, or re-reading confidence?
+
+On the half of items the model is most confident about, probe AUROC minus the
+model's own confidence AUROC. Positive means the activations say something the
+output does not.
+
+| model | boolq | GoT | imdb | rte | truthfulqa |
+|---|---|---|---|---|---|
+| qwen38-27b | 0.221 | 0.310 | — | 0.400 | **0.323** |
+| gemma4-31b | 0.057 | 0.275 | — | −0.030 | **0.350** |
+| qwen3-1.7b | 0.138 | 0.268 | 0.073 | −0.105 | **0.209** |
+| olmo3-7b | 0.055 | 0.006 | 0.089 | 0.032 | **0.227** |
+| qwen3-8b-base | 0.067 | 0.192 | −0.016 | −0.072 | **0.207** |
+| llama-8b | −0.009 | −0.003 | 0.001 | 0.000 | **0.158** |
+| qwen3-8b | −0.033 | 0.242 | −0.032 | 0.049 | **0.104** |
+| gemma4-12b | 0.021 | 0.043 | −0.011 | 0.015 | **0.079** |
+| qwen3-32b | 0.007 | 0.077 | −0.004 | 0.122 | **0.049** |
+
+TruthfulQA is the only column with no negatives: all ten models pass. That is
+where models are confidently wrong most often (42% of confident items), so there
+is work for a probe to do. On BoolQ and IMDB confidence is already a good
+predictor and the probe cannot beat it. The instrument works where it is needed.
+
+## C. Does the map carry the probe?
+
+Fit the probe on one model, read it on the other through the linear map. `gap` is
+the AUROC lost in transit; the tolerance is 0.05; `pass rate` requires both
+directions under it.
+
+| kind | dataset | gap a→b | gap b→a | worst | pass rate | CKA | map R² |
+|---|---|---|---|---|---|---|---|
+| same | geometry_of_truth | 0.049 | 0.034 | 0.072 | **0.67** | 0.757 | 0.786 |
+| cross | geometry_of_truth | 0.032 | 0.049 | 0.084 | **0.61** | 0.788 | 0.792 |
+| same | imdb | 0.060 | 0.063 | 0.095 | 0.46 | 0.499 | 0.476 |
+| cross | imdb | 0.109 | 0.169 | 0.222 | 0.36 | 0.514 | 0.479 |
+| cross | rte | 0.063 | 0.049 | 0.103 | 0.34 | 0.528 | 0.170 |
+| same | truthfulqa | 0.045 | 0.037 | 0.073 | 0.28 | 0.407 | 0.252 |
+| cross | truthfulqa | 0.042 | 0.069 | 0.097 | 0.18 | 0.441 | 0.268 |
+| both | boolq | 0.14–0.19 | 0.14–0.16 | 0.24 | **0.00** | 0.42 | 0.40 |
+
+Transport works on Geometry of Truth and mostly fails elsewhere — **zero of 126
+BoolQ pairs pass**. Same family barely helps. Read this as the worst case: with
+the map fitted on all datasets pooled (4x the rows) spot checks did far better.
+
+## D. Does the detector work on a dataset it never saw?
+
+Probes, map and direction are all fitted on four datasets; the fifth is unseen by
+all three. `shuffled` is the same procedure with permuted labels — what a
+detector that learned nothing would score. **`margin` is the real number**, and
+`ctrl sd` is how much the control itself moves: a margin under ~2 sd is not
+measurable.
+
+| held out | kind | AUROC | shuffled | margin | ctrl sd | folds | median Row-2 |
+|---|---|---|---|---|---|---|---|
+| geometry_of_truth | cross | 0.909 | 0.447 | **+0.463** | 0.144 | 90 | 642 |
+| | same | 0.889 | 0.479 | **+0.410** | 0.159 | 36 | 645 |
+| rte | cross | 0.705 | 0.510 | +0.195 | 0.061 | 90 | 49 |
+| imdb | same | 0.641 | 0.500 | +0.140 | 0.078 | 22 | 708 |
+| | cross | 0.634 | 0.509 | +0.125 | 0.063 | 61 | 762 |
+| truthfulqa | same | 0.552 | 0.486 | +0.066 | 0.044 | 35 | 363 |
+| | cross | 0.560 | 0.495 | +0.065 | 0.047 | 89 | 373 |
+| boolq | cross | 0.535 | 0.500 | +0.035 | 0.025 | 88 | 180 |
+| | same | 0.526 | 0.494 | +0.032 | 0.023 | 36 | 109 |
+
+Decisive on Geometry of Truth, moderate on RTE and IMDB, and **barely present on
+TruthfulQA** (+0.065 against a control that wobbles ±0.047) — which is the
+dataset where the blind spot matters. Same-family and cross-family are
+indistinguishable throughout: the dataset decides, not the pairing.
+
+## E. What does an operator get?
+
+Two models read a claim. Disagreement routes it to an expensive check, free. When
+both say true nobody flags it, so a budget of extra checks is spent there,
+prioritised by the detector. `base rate` is how often a *randomly chosen*
+agreeing item is false — the bar to beat. `prec@k` is the share of checks that
+find a real error at that budget.
+
+| held out | router (free) | base rate | prec@5% | prec@10% | prec@20% | caught@10% | caught@20% |
+|---|---|---|---|---|---|---|---|
+| geometry_of_truth | 0.395 | 0.234 | **0.938** | 0.889 | 0.747 | 0.495 | 0.563 |
+| rte | 0.284 | 0.327 | 0.685 | 0.632 | 0.563 | 0.356 | 0.412 |
+| truthfulqa | 0.339 | 0.428 | 0.510 | 0.501 | 0.490 | 0.393 | 0.444 |
+| imdb | 0.291 | 0.298 | 0.508 | 0.480 | 0.444 | 0.340 | 0.382 |
+| boolq | 0.459 | 0.171 | 0.175 | 0.186 | 0.189 | 0.478 | 0.498 |
+
+Lift over random checking at a 5% budget: GoT **4.0x**, RTE 2.1x, IMDB 1.7x,
+TruthfulQA 1.2x, BoolQ 1.0x (nothing).
+
+Two things worth saying out loud. On GoT, 5% more checks find a real error 94% of
+the time against 23% at random. On TruthfulQA it is 51% against 43% — barely a
+coin. And the base rates themselves are the uncomfortable part: **when these
+models agree that a TruthfulQA claim is true, it is false 43% of the time.**
+Agreement is not much of a safety signal there to begin with.
+
+## F. What predicts whether the detector works
+
+Correlation with the margin from table D, across all 49 pairs:
+
+| candidate explanation | corr with margin |
+|---|---|
+| how common false agreement is | **−0.636** |
+| how often agreement is wrong (base rate) | −0.391 |
+| how correlated the two models' errors are | +0.098 |
+| how similar the two models look (CKA) | −0.071 |
+
+**The rarer the blind spot, the easier it is to detect.** Where both models are
+usually right, being wrong together is unusual and stands out; where they are
+wrong together 43% of the time, that *is* the normal state and there is no
+anomaly left to find.
+
+This kills two hypotheses formed earlier in the project. Error correlation does
+**not** predict detectability (+0.098), and neither does representational
+similarity (−0.071) — which undercuts the CKA-predicts-rho premise of the Paper 2
+sketch in `future_work/`. That sketch needs rewriting or dropping.
+
+## The bottom line
+
+The measurement is solid and replicates: false agreement is real, it is 4–24% of
+false claims depending on the dataset, and its decomposition into error rates and
+error correlation behaves as the identity says it must.
+
+The detector is the weaker half. It works where the blind spot is small and rare
+(4x lift on Geometry of Truth) and barely works where it is large and common
+(1.2x on TruthfulQA) — the opposite of where an operator would want it. The
+paper's claim should be the bound plus this asymmetry, not a detector.
