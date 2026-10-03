@@ -4,7 +4,7 @@ The spec for the *science* is [`../../DESIGN.md`](../../DESIGN.md). This file ho
 decisions that are about the *paper*: framing, what goes in which section, the
 methodological additions that the experiments have to support, and the venue.
 
-Title and abstract live in [`../main.tex`](../tmlr.tex) / [`abstract.tex`](abstract.tex);
+Title and abstract live in [`../tmlr.tex`](../tmlr.tex) / [`abstract.tex`](abstract.tex);
 the formal treatment of the false-agreement algebra is
 [`theory.tex`](theory.tex), and every quantity in it is implemented in
 [`../../cmb/metrics.py`](../cmb/metrics.py).

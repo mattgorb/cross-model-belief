@@ -77,8 +77,8 @@ scripts/                  kickoff.sh (extract + run everything), extract.py
                           (warm the cache), run_all.sh, smoke.sh
 docs/EXPERIMENT_PLAN.md   one page: models, datasets, the plan, the costs
 docs/RUNBOOK.md           infra -> extraction -> experiments, end to end
-paper/                    the write-up: main.tex, abstract.tex, theory.tex
-                          (the false-agreement algebra), refs.bib, PLAN.md
+paper/                    the write-up: tmlr.tex on the TMLR template, with
+                          sections/{abstract,theory,method}.tex, refs.bib, PLAN.md
 future_work/              Paper 2 (predicting reliability from CKA) and beyond
 reference/                the original single-file scripts this was refactored from
 infra/                    Terraform for spot GPU instances
