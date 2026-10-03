@@ -605,7 +605,7 @@ actually reason? Design, for when it is worth the GPU time:
 - Fréchet 1951 (bounds on a joint with fixed marginals); Ueda & Nakano 1996 /
   Brown et al. 2005 (bias–variance–covariance, the correlation floor)
 
-Full BibTeX in `paper/refs.bib` — **the arXiv ids above need verifying before
+Full BibTeX in `paper/tmlr.bib` — **the arXiv ids above need verifying before
 submission**.
 
 ---
@@ -613,7 +613,7 @@ submission**.
 ## 12. Where the paper lives
 
 - `paper/` — `tmlr.tex` (title, skeleton), `abstract.tex`, `sections/theory.tex` (the §2.4
-  algebra, formally), `refs.bib`, and `PLAN.md`: framing, the two causes of false
+  algebra, formally), `tmlr.bib`, and `PLAN.md`: framing, the two causes of false
   agreement and the attribution control, probe-type and layer decisions, the
   section plan, the citation checklist, and the venue (TMLR in December; ICML in
   February as the alternative; arXiv either way).
