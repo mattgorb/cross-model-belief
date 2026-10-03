@@ -4,28 +4,39 @@
 \label{sec:related}
 
 \paragraph{Correlated errors undermine oversight --- at the output level.}
-The claim that models fail together, and that this is a problem for oversight
-built on agreement, is established and is not ours.
-\citet{goel2025alike} introduce a chance-adjusted measure of model similarity
-based on overlap in mistakes, and show that judges favour models similar to
-themselves, that weak-to-strong training works better when supervisor and student
-have complementary rather than overlapping knowledge, and that mistakes grow more
-similar as capability grows. \citet{kim2025correlated} measure error correlation
-across more than $350$ models and find models agreeing on the wrong answer around
-$60\%$ of the time when both err, with the correlation \emph{rising} with
-accuracy and persisting across architectures and providers.
-\citet{ding2026agree} audit agreement itself as a confidence signal and find it
-unreliable in the same direction.
+That models fail together, and that this is a problem for oversight built on
+agreement, is established and is not our claim.
 
-Our measurement is the internal-state counterpart of theirs. Every one of these
-works reads outputs, so none of them can distinguish two models reaching the same
-wrong answer by the same internal route from two reaching it by different routes
---- which is exactly the distinction that decides whether a probe-based checker
-escapes the problem. Our chance-adjusted quantity, the error correlation
-normalized by the maximum its marginals permit, is the same \emph{kind} of
-statistic as their chance-adjusted agreement; we derive it from the exact
-decomposition of the false-agreement rate rather than defining it directly, which
-is what lets us say why family diversity fails to help.
+\citet{goel2025alike} compare models' \emph{predictions} on benchmarks and define
+CAPA, agreement on wrong answers corrected for the agreement two models would
+reach by chance given their accuracies. With it they show three things: judges
+score models similar to themselves more highly, weak-to-strong training gains
+more when supervisor and student know different things, and similarity has been
+rising across model generations. \citet{kim2025correlated} measure conditional
+error agreement across more than $350$ models from two leaderboards and a
+resume-screening task: when both models err they select the same wrong answer
+roughly $60\%$ of the time, and this rises with accuracy rather than falling,
+persisting across architectures and providers. \citet{ding2026agree} ask whether
+agreement predicts correctness --- across a model's own samples and across a panel
+of judges --- and find that it does not reliably.
+
+All three read what models \emph{say}. We compare what two models
+\emph{represent}, and the distinction is not a refinement: two models can reach
+the same wrong answer by different internal routes, and output-level agreement
+cannot tell those cases apart. Whether a probe-based checker escapes the problem
+depends entirely on which case holds, so the question has to be asked at the
+level of internal state.
+
+The relationship to CAPA is worth being precise about, because our
+$\rho/\rho_{\max}$ is the same \emph{kind} of statistic --- error overlap,
+corrected for what the marginals force. The difference is that we obtain it by
+decomposing the false-agreement rate exactly rather than by defining a measure
+(Section~\ref{sec:theory}), and the decomposition does work a defined metric
+cannot: it predicts, and then explains, the result that contradicted our own
+hypothesis. Pairs from different families genuinely have lower error correlation,
+but they carry higher individual error rates, and the identity's two terms cancel
+so the rate does not move. A chance-adjusted metric can report that pattern; an
+identity accounts for it.
 
 \paragraph{Probes, truth directions, and their failure modes.}
 \citet{burns2023ccs} recover a truth direction without supervision, and
@@ -39,12 +50,15 @@ that failure --- our unsupervised probe reads truth on curated factual statement
 and not on adversarial misconceptions --- and it is why the probes we rely on are
 supervised.
 
-Closest in spirit to our question, \citet{pandey2026sycophancy} find a small set
-of attention heads carrying a ``this statement is wrong'' signal across twelve
-open-weight models from five labs, so a shared internal signal across models is
-not only plausible but observed. They study whether a model notices its own
-error; we study whether two models' readouts fail together, and whether that
-joint failure is detectable.
+Closest in spirit, \citet{pandey2026sycophancy} read internal state rather than
+outputs, and find the same small set of attention heads carrying a ``this
+statement is wrong'' signal across twelve open-weight models from five labs. A
+shared internal signal across models is therefore observed rather than
+hypothesised, which is prior evidence for the mechanism behind our result. Their
+question is sycophancy --- does a model notice that the \emph{user's} claim is
+false and agree anyway --- so the comparison is one model against its
+interlocutor. Ours is one model's readout against another's, and whether their
+joint failure leaves a signature.
 
 \paragraph{Transporting probes between models.}
 Reusing a probe characterized on one model requires a map between activation
@@ -77,11 +91,25 @@ role, and \citet{panickssery2024selfpreference} show judges recognize and favour
 their own generations, one concrete mechanism by which a checker's errors
 correlate with the checked model's. On the theoretical side,
 \citet{afrin2026ensembles} analyse evaluator ensembles under optimization
-pressure and prove that common-mode error is not identifiable from the judges'
-own scores --- disagreement reveals only the orthogonal component. Our
-empirical finding, that the shared blind spot is barely detectable from the
-activations that produced it, is the representation-level analogue of that
-result, reached from the other direction.
+pressure, decompose the error covariance, and prove that the common-mode
+component is not identifiable from the judges' own scores --- disagreement reveals
+only the orthogonal part. Our empirical finding, that the shared blind spot is
+barely detectable from the activations that produced it, is the
+representation-level analogue of that theorem, reached from the other direction:
+they show the shared component is invisible in the scores, we measure how little
+of it is visible in the states.
+
+\paragraph{What is new here.}
+Three things, stated narrowly. (i) The measurement is of internal readouts rather
+than outputs, which is the only level at which the question above can be settled,
+and no prior work measures agreement between two models' probes. (ii) The rate is
+derived rather than defined, giving an upper bound set by the better probe's own
+error rate and an explanation for why family diversity does not help. (iii) Two
+experiments have no counterpart in the work above: the cost of transporting a
+probe between models, measured in discriminative performance lost and reported
+per dataset and per direction; and the detectability of the blind spot, where a
+direction is fitted on the false agreements of four datasets and tested on a
+fifth.
 
 \paragraph{Ensemble diversity.}
 The dependence of ensemble error on the covariance between members is classical
