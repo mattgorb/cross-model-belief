@@ -612,11 +612,12 @@ submission**.
 
 ## 12. Where the paper lives
 
-- `paper/` — `tmlr.tex` (title, skeleton), `abstract.tex`, `sections/theory.tex` (the §2.4
-  algebra, formally), `tmlr.bib`, and `PLAN.md`: framing, the two causes of false
-  agreement and the attribution control, probe-type and layer decisions, the
-  section plan, the citation checklist, and the venue (TMLR in December; ICML in
-  February as the alternative; arXiv either way).
+- `paper/` — `tmlr.tex` on the TMLR template, with `sections/abstract.tex`,
+  `sections/theory.tex` (the §2.4 algebra, formally), `sections/method.tex`, and
+  `tmlr.bib`. Venue: TMLR in December, ICML in February as the alternative,
+  arXiv either way. The framing decisions that used to live in a separate plan
+  file are in this document: the two causes of false agreement and the
+  attribution control in §2.1, probe types in §4, layer choice in §4 and §6.
 - `future_work/paper2-representational-similarity.md` — predicting `rho` from
   CKA, the `FA(kappa)` tradeoff curve, and the full N-model floor. Paper 1 is its
   prerequisite, because the CKA→`rho` fit needs measured `rho`.

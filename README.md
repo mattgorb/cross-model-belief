@@ -14,7 +14,7 @@ cross-model belief agreement has an irreducible cap and we report it.
 **Read `DESIGN.md` first** — it is the spec, and every script cites the section
 it implements. The write-up lives in [`paper/`](paper/) (skeleton, abstract, and
 the formal treatment of the false-agreement algebra in `sections/theory.tex`, with the
-framing and venue decisions in `paper/sections/PLAN.md`); the follow-on paper is
+the formal treatment of the bound in `paper/sections/theory.tex`); the follow-on paper is
 [`future_work/`](future_work/).
 
 ## Quickstart
@@ -78,7 +78,7 @@ scripts/                  kickoff.sh (extract + run everything), extract.py
 docs/EXPERIMENT_PLAN.md   one page: models, datasets, the plan, the costs
 docs/RUNBOOK.md           infra -> extraction -> experiments, end to end
 paper/                    the write-up: tmlr.tex on the TMLR template, with
-                          sections/{abstract,theory,method}.tex, tmlr.bib, PLAN.md
+                          sections/{abstract,theory,method}.tex, tmlr.bib
 future_work/              Paper 2 (predicting reliability from CKA) and beyond
 reference/                the original single-file scripts this was refactored from
 infra/                    Terraform for spot GPU instances
