@@ -334,10 +334,17 @@ usually right, being wrong together is unusual and stands out; where they are
 wrong together 43% of the time, that *is* the normal state and there is no
 anomaly left to find.
 
-This kills two hypotheses formed earlier in the project. Error correlation does
-**not** predict detectability (+0.098), and neither does representational
-similarity (−0.071) — which undercuts the CKA-predicts-rho premise of the Paper 2
-sketch in `future_work/`. That sketch needs rewriting or dropping.
+This kills two hypotheses formed earlier in the project: neither error
+correlation (+0.098) nor representational similarity (−0.071) predicts
+**detectability**.
+
+**Correction.** An earlier version of this file read that second number as
+undercutting the CKA-predicts-rho premise of the Paper 2 sketch. It does not —
+those are different quantities. CKA does not predict whether the blind spot is
+*detectable*, but it strongly predicts the *error correlation* that Paper 2 is
+about: corr(CKA, rho/rho_max) = **+0.749** across the 49 pairs (+0.42 per cell,
+and positive within every dataset, from +0.29 on TruthfulQA to +0.70 on Geometry
+of Truth). See §H.
 
 ## The bottom line
 
@@ -389,3 +396,40 @@ binary question, which is too narrow to carry it. A proper test needs full
 next-token distributions over a corpus, which we did not cache — that is the
 concrete thing to add to the extraction if this is worth pursuing. KL being
 equally uninformative here (0.05) is consistent with their account.
+
+## H. Representational similarity, transport, and error correlation
+
+Measured per pair (49 pairs, averaging over datasets):
+
+| relationship | correlation |
+|---|---|
+| CKA → error correlation (rho/rho_max) | **+0.749** |
+| CKA → transfer loss | −0.442 |
+| transfer loss → error correlation | **−0.764** |
+| CKA → false agreement rate | −0.028 |
+| CKA → detector margin | −0.071 |
+
+Splitting pairs at the median transfer loss:
+
+| | rho/rho_max | CKA | FA |
+|---|---|---|---|
+| transports well | 0.498 | 0.615 | 0.121 |
+| transports badly | 0.134 | 0.451 | 0.128 |
+
+**The constraint.** Pairs whose probes transport well have errors roughly four
+times as correlated as pairs whose probes do not. Transportability and
+independence are two readings of the same underlying quantity — representational
+overlap — and they are correlated at −0.76. The property that lets you reuse a
+validated probe on a model you could not label is the property that makes the two
+models fail together.
+
+**And the rate does not move.** FA is 0.121 against 0.128 across that split, and
+corr(CKA, FA) = −0.03. Similarity raises the correlation term and lowers the
+error rates, and the identity's two terms cancel — the same mechanism that
+flattened the family-diversity contrast. So there is no interior optimum in FA as
+a function of similarity in this range; there is a trade between transportability
+and independence, with the blind spot roughly constant across it.
+
+This is the material for the follow-on paper, and the reason the alignment map is
+not in Paper 1: there the map answers a question nobody asked (we can label both
+models, so we fit two probes), while here it is the subject.

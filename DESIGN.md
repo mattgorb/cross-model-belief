@@ -220,7 +220,7 @@ once `rho_bar > 0`, adding models stops helping — `rho_bar = 0.8` caps the poo
 1.25 effective readers, and it takes `rho_bar ≈ 0.3` for 20 models to be worth
 about 3. This is standard ensemble theory (bias–variance–covariance); cite it,
 do not claim it. Implemented as `cmb.metrics.n_eff`, developed properly in
-`future_work/paper2-representational-similarity.md`.
+`future_work/paper2-transport-and-similarity.md`.
 
 **Honest framing.** The identity and the floor are borrowed. What is ours is
 applying them to probe-based cross-model oversight, adding the transport term, and
@@ -618,6 +618,6 @@ submission**.
   arXiv either way. The framing decisions that used to live in a separate plan
   file are in this document: the two causes of false agreement and the
   attribution control in §2.1, probe types in §4, layer choice in §4 and §6.
-- `future_work/paper2-representational-similarity.md` — predicting `rho` from
+- `future_work/paper2-transport-and-similarity.md` — predicting `rho` from
   CKA, the `FA(kappa)` tradeoff curve, and the full N-model floor. Paper 1 is its
   prerequisite, because the CKA→`rho` fit needs measured `rho`.

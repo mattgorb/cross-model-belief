@@ -40,6 +40,10 @@ def extract(model: str, dataset: str, n: int | None = None,
     fracs = tuple(fracs) if fracs else tuple(sorted(set(LAYER_SWEEP) |
                                                    {DEFAULT_LAYER_FRAC}))
     layers = _layers_for(backend, fracs, extra_layers)
+    if hasattr(backend, "features_batch"):
+        # Remote traces pay for every saved tensor in bandwidth, so the sweep
+        # layers are not free there the way they are from one local forward pass.
+        layers = layers[-1:]
 
     pos = {l: [] for l in layers}
     neg = {l: [] for l in layers}
@@ -48,11 +52,32 @@ def extract(model: str, dataset: str, n: int | None = None,
     pos_alt = {l: [] for l in layers}
     neg_alt = {l: [] for l in layers}
     p_yes, labels = [], []
-    for i, it in enumerate(items):
-        if hasattr(backend, "features_for_item"):
-            f = backend.features_for_item(it, layers)
-        else:
-            f = backend.features(it.claim, layers)
+
+    def feats():
+        """Yield one ItemFeatures per item, batching where the backend can.
+
+        A remote backend pays a network round trip per trace, so item-at-a-time
+        would dominate everything else; `features_batch` amortizes it. Local
+        backends keep the per-item path, which is simpler and already fast.
+        """
+        if hasattr(backend, "features_batch"):
+            step = getattr(backend, "batch_size", 16)
+            for k in range(0, len(items), step):
+                chunk = items[k:k + step]
+                if progress:
+                    print(f"  [{model}/{dataset}] {k}/{len(items)}",
+                          file=sys.stderr)
+                yield from backend.features_batch([c.claim for c in chunk],
+                                                  layers[-1])
+            return
+        for k, it in enumerate(items):
+            if progress and k % 50 == 0:
+                print(f"  [{model}/{dataset}] {k}/{len(items)}", file=sys.stderr)
+            yield (backend.features_for_item(it, layers)
+                   if hasattr(backend, "features_for_item")
+                   else backend.features(it.claim, layers))
+
+    for it, f in zip(items, feats()):
         for l in layers:
             pos[l].append(f.pos[l])
             neg[l].append(f.neg[l])
@@ -61,8 +86,6 @@ def extract(model: str, dataset: str, n: int | None = None,
                 neg_alt[l].append(f.neg_last[l])
         p_yes.append(f.p_yes)
         labels.append(it.label)
-        if progress and i % 50 == 0:
-            print(f"  [{model}/{dataset}] {i}/{len(items)}", file=sys.stderr)
 
     return ActivationSet(
         model=model, dataset=dataset, item_ids=[it.item_id for it in items],

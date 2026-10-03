@@ -85,7 +85,13 @@ class ActivationSet:
 
 
 def cache_path(model: str, dataset: str, n: int | None) -> Path:
-    return CACHE_DIR / model / f"{dataset}_n{n if n is not None else 'all'}.npz"
+    """Cache file for one (model, dataset, n).
+
+    A HuggingFace repo id contains a slash, which would silently nest the cache
+    one directory deeper and break every listing; flatten it instead.
+    """
+    safe = model.replace("/", "--")
+    return CACHE_DIR / safe / f"{dataset}_n{n if n is not None else 'all'}.npz"
 
 
 def save(acts: ActivationSet, path: Path) -> None:

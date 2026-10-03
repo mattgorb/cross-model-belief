@@ -63,6 +63,9 @@ ALPHA = 0.1
 # laptop into swap, where the sweep makes no progress at all. Subsampled
 # stratified, so the rare class is not thinned.
 MAX_DIRECTION_ROWS = 4000
+# None -> concatenate the two models' features instead of mapping one into the
+# other's space. See `aligned`.
+USE_MAP_FOR_FEATURES = True
 
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
@@ -131,13 +134,24 @@ def get(model: str, ds: str):
 
 
 def aligned(A, B, mask, map_ba):
-    """Difference and mean of each model's contrast pair, B pushed into A's space.
+    """Difference and mean of each model's contrast pair, side by side.
 
     The mean is kept because a shared prominence confound sits in the part of the
     pair that the difference cancels, and that is what Row 2 is made of.
+
+    `map_ba=None` concatenates the two models' features in their own coordinates
+    rather than pushing B into A's space. A classifier does not need a shared
+    space -- it fits one weight vector over the concatenation, and the halves may
+    even have different widths -- and the map is lossy, so on a pair it transports
+    badly the mapped half is partly reconstruction error. Measured: detection
+    margin tracks map quality on TruthfulQA (0.039 with worse maps, 0.093 with
+    better), which is a confound rather than a property of the blind spot.
     """
     pa, na = A["pos"][mask], A["neg"][mask]
-    pb, nb = map_ba(B["pos"][mask]), map_ba(B["neg"][mask])
+    if map_ba is None:
+        pb, nb = B["pos"][mask], B["neg"][mask]
+    else:
+        pb, nb = map_ba(B["pos"][mask]), map_ba(B["neg"][mask])
     # float32: this is 4 x d columns (20k for the largest models) and the
     # classifier copies it several times. In float64 that drove the machine into
     # swap -- 56s of CPU across 38 minutes of wall clock. lbfgs keeps float32.
@@ -279,7 +293,7 @@ def loo_row(ov, tg, held, pool):
         both = metrics.both_true_mask(v1, v2)
         sel = np.zeros(len(A["labels"]), bool)
         sel[np.where(te)[0][both]] = True
-        Xd.append(aligned(A, B, sel, map_ba))
+        Xd.append(aligned(A, B, sel, map_ba if USE_MAP_FOR_FEATURES else None))
         yd.append((A["labels"][te][both] == 0).astype(int))
     Xd, yd = np.concatenate(Xd), np.concatenate(yd)
     if len(yd) > MAX_DIRECTION_ROWS:
@@ -311,7 +325,7 @@ def loo_row(ov, tg, held, pool):
         row.update({c: float("nan") for c in LOO_COLS if c not in row})
         return row
 
-    Xh = aligned(A, B, both, map_ba)
+    Xh = aligned(A, B, both, map_ba if USE_MAP_FOR_FEATURES else None)
     d = LinearDirection.fit(Xd, yd)
     score = d.score(Xh)
     rng = np.random.default_rng(SEED)
@@ -408,13 +422,17 @@ def main() -> int:
     ap.add_argument("--tag", default="")
     ap.add_argument("--probe", default="mass-mean",
                     choices=["mass-mean", "lr", "ccs"])
+    ap.add_argument("--no-map-features", action="store_true",
+                    help="concatenate the two models' features instead of mapping "
+                         "one into the other's space (see `aligned`)")
     ap.add_argument("--held-out", default="",
                     help="only run these held-out folds (comma-separated). One "
                          "fold costs a fifth of the full sweep and truthfulqa is "
                          "the fold that decides anything.")
     args = ap.parse_args()
-    global PROBE
+    global PROBE, USE_MAP_FOR_FEATURES
     PROBE = args.probe
+    USE_MAP_FOR_FEATURES = not args.no_map_features
 
     pairs = all_pairs()
     if args.pairs:

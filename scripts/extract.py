@@ -103,6 +103,12 @@ def main() -> int:
     ap.add_argument("--layers", default="",
                     help="extra layer specs beyond the standing sweep "
                          f"{LAYER_SWEEP} (comma-separated)")
+    ap.add_argument("--backend", default="hf", choices=["hf", "ndif"],
+                    help="'ndif' runs the model remotely through nnsight, for "
+                         "models too large to host locally. Needs NDIF_API_KEY "
+                         "in the environment.")
+    ap.add_argument("--batch-size", type=int, default=8,
+                    help="items per remote trace (ndif backend only)")
     ap.add_argument("--synthetic", action="store_true")
     ap.add_argument("--refresh", action="store_true",
                     help="re-extract even if a cache file already exists")
@@ -142,7 +148,11 @@ def main() -> int:
             t0 = time.time()
             try:
                 if backend is None:
-                    backend = load_backend(model, synthetic=args.synthetic)
+                    if args.backend == "ndif":
+                        from cmb.ndif import NDIFModel
+                        backend = NDIFModel(model, batch_size=args.batch_size)
+                    else:
+                        backend = load_backend(model, synthetic=args.synthetic)
                 acts = get_activations(model, ds, args.n, synthetic=args.synthetic,
                                        refresh=args.refresh, extra_layers=extra,
                                        backend=backend)

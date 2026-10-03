@@ -2,21 +2,20 @@
 \section{Introduction}
 \label{sec:intro}
 
-One language model checking another is now the default instrument of oversight.
-Judges grade benchmarks, filter pretraining corpora, supply reward signal, and
-watch deployed behaviour, and the appeal is obvious: a model is cheap, fast, and
-available in quantity where a human annotator is none of those things
-\citep{zheng2023judge}. The proposals that go beyond a single judge --- debate
-\citep{irving2018debate}, sandwiching \citep{bowman2022measuring},
-weak-to-strong training \citep{burns2023weak} --- all inherit the same
-arrangement: a model is held to account by other models.
+One language model checking another model’s output is a default instrument of AI
+oversight. Judges grade benchmarks, filter pretraining corpora, supply reward
+signals, and watch deployed behaviour. The appeal is obvious: models are cheap,
+fast, and available in quantity, unlike human annotators
+\citep{zheng2023judge}. Other oversight schemes, including debate
+\citep{irving2018debate}, sandwiching \citep{bowman2022measuring}, and
+weak-to-strong training \citep{burns2023weak}, also rely on models checking or
+supervising other models. All depend on the checker catching errors when the
+model being checked is wrong.
 
-Every version of this rests on an assumption that is rarely stated and almost
-never tested. The checker has to fail \emph{differently} from the model it is
-checking. If the two share a mistake, no amount of checking surfaces it. And a
-checker that reads outputs is blind in two separate ways. It cannot see what the
-model keeps to itself, and it cannot see a mistake the two of them make
-together.
+Every such approach rests on an assumption that is almost never tested: the
+checker and the model being checked must fail differently. However, output-based
+checking has two potential failure modes: the checker cannot assess what the
+model does not express, and it cannot catch errors shared by both models.
 
 The first blindness has a known answer. Linear probes read a model's internal
 state rather than its output, recovering a direction along which true and false
@@ -34,8 +33,7 @@ more capable, and this undermines oversight schemes built on agreement
 \citep{goel2025alike,kim2025correlated}. But correlated \emph{outputs} do not
 have to mean correlated \emph{representations}. Two models might converge on the
 same answer through different internal routes, in which case a reader of
-internal state would see the disagreement an output-level judge misses. Nothing
-in the existing results rules that out, because nothing has measured it.
+internal state would see the disagreement an output-level judge misses.
 
 \paragraph{False agreement.}
 We fit a probe on each of two models, read both on the same claim, and ask how
