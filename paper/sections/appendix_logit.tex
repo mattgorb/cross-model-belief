@@ -1,0 +1,76 @@
+% Appendix --- the logit-distance test. Negative, and in the appendix because it
+% is a statement about a proxy rather than about the theory it tests.
+\section{Does Logit Distance Predict Probe Transportability?}
+\label{sec:appendix:logit}
+
+\citet{nielsen2026logit} identify a logit-based distributional distance as the
+quantity that controls linear representational similarity, and show that KL
+closeness does not: two models can match each other's predictions while failing
+to preserve the linear recoverability of the same concepts. That makes logit
+distance the better-motivated predictor of whether a probe survives the map
+between two models, where Section~\ref{sec:results} reports CKA.
+
+We can test a version of it at no cost, because extraction caches each model's
+out-loud probability that a claim is true. For models $A$ and $B$ on the same
+items,
+\[
+  d_{\mathrm{logit}} = \frac{1}{n}\sum_i
+  \left| \log\frac{p^A_i}{1-p^A_i} - \log\frac{p^B_i}{1-p^B_i} \right| ,
+\]
+alongside the mean KL between the two Bernoulli distributions. We correlate each
+against the transfer loss of Section~\ref{sec:results}, over all $208$ cells.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & \multicolumn{3}{c}{correlation with transfer loss} \\
+\cmidrule(lr){2-4}
+predictor & $A\!\to\!B$ & $B\!\to\!A$ & worse direction \\
+\midrule
+logit distance (mean absolute) & $-0.010$ & $0.036$ & $0.051$ \\
+KL                             & $-0.057$ & $0.083$ & $0.050$ \\
+correlation of $p(\text{yes})$ & $-0.451$ & $-0.278$ & $-0.487$ \\
+CKA                            & $\mathbf{-0.574}$ & $-0.151$ & $\mathbf{-0.514}$ \\
+map $R^2$ ($A\!\to\!B$)        & $-0.388$ & $0.070$ & $-0.301$ \\
+\bottomrule
+\end{tabular}
+\caption{Negative correlations mean the predictor anticipates \emph{better}
+transfer. Pooled over $208$ cells.}
+\label{tab:logit-pooled}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+dataset & logit distance & KL & CKA & $n$ \\
+\midrule
+geometry\_of\_truth & $+0.306$ & $+0.515$ & $-0.598$ & 45 \\
+boolq               & $+0.301$ & $+0.110$ & $-0.522$ & 45 \\
+truthfulqa          & $+0.185$ & $+0.310$ & $-0.525$ & 45 \\
+imdb                & $+0.041$ & $+0.350$ & $-0.663$ & 28 \\
+rte                 & $-0.233$ & $-0.018$ & $-0.139$ & 45 \\
+\bottomrule
+\end{tabular}
+\caption{Within each dataset, against the worse of the two transfer directions.
+For logit distance a \emph{positive} value is the predicted direction: more
+distance, more loss.}
+\label{tab:logit-bydataset}
+\end{table}
+
+Pooled, the proxy predicts nothing, and CKA remains the better available
+predictor. Within each dataset the sign is the predicted one in four cases of
+five, so the direction is present and the magnitude is weak; the pooled estimate
+vanishes because variation between datasets swamps it.
+
+We read this as a statement about the proxy and not about the result it tests.
+The distance in \citet{nielsen2026logit} is defined over a model's full
+conditional distribution, and ours projects that onto a single binary question --
+one dimension of a vocabulary-sized object -- which is evidently too narrow to
+carry the quantity. Testing the theory in this setting requires caching full
+next-token distributions over a corpus, which we did not do; that is the concrete
+addition for anyone who wants the answer. Consistently with their account, KL is
+equally uninformative here.
