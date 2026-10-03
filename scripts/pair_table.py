@@ -21,8 +21,13 @@ into train/test.
      each got wrong, how many both got wrong, and how that splits into both
      saying true when the claim was false (the silent blind spot) and both saying
      false when it was true.
-  6. Cross-detection: AUROC of A's belief score against **B's correctness**. Can
-     A's internal readout tell you when B is wrong? 0.5 means it cannot.
+  6. Cross-detection: can A's readout tell you when B is wrong? The score is how
+     much A's belief **contradicts B's verdict** -- `1 - belief_A` where B said
+     true, `belief_A` where B said false -- scored against B actually being wrong.
+     Scoring A's raw belief against B's correctness instead is confounded and was
+     the first thing tried here: B is usually right on true claims and wrong on
+     false ones, so its correctness is not monotone in A's belief and the measure
+     returns chance regardless of the signal. 0.5 means A cannot see B's errors.
 
     scripts/pair_table.py --probe lr
     scripts/pair_table.py --probe mass-mean --tag _mm
@@ -130,7 +135,9 @@ def row(ma, mb, ds, probe_kind):
     wa, wb = va != y_te, vb != y_te
     both = wa & wb
     union = int((wa | wb).sum())
-    ok_b, ok_a = (~wb).astype(int), (~wa).astype(int)
+    # signed contradiction: high when A disagrees with the verdict B gave
+    contra_a = np.where(vb == 1, 1.0 - ba, ba)   # A's objection to B's call
+    contra_b = np.where(va == 1, 1.0 - bb, bb)   # B's objection to A's call
 
     return {"model_a": ma, "model_b": mb, "dataset": ds,
             "kind": "same-family" if FAMILY[ma] == FAMILY[mb] else "cross-family",
@@ -150,10 +157,10 @@ def row(ma, mb, ds, probe_kind):
             "n_both_wrong_say_false": int((both & (va == 0)).sum()),
             "both_wrong_rate": float(both.mean()),
             "jaccard_errors": (both.sum() / union) if union else float("nan"),
-            "a_detects_b_error": metrics.auroc(ba, ok_b)
-            if len(np.unique(ok_b)) > 1 else float("nan"),
-            "b_detects_a_error": metrics.auroc(bb, ok_a)
-            if len(np.unique(ok_a)) > 1 else float("nan")}
+            "a_detects_b_error": metrics.auroc(contra_a, wb.astype(int))
+            if len(np.unique(wb)) > 1 else float("nan"),
+            "b_detects_a_error": metrics.auroc(contra_b, wa.astype(int))
+            if len(np.unique(wa)) > 1 else float("nan")}
 
 
 def main() -> int:

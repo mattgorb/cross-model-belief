@@ -37,10 +37,24 @@ SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
 
 
 def read(stem: str) -> pd.DataFrame:
-    parts = sorted(RESULTS_DIR.glob(f"{stem}*.csv"))
+    """Merge the per-worker shards, excluding this script's own output.
+
+    The glob used to match `<stem>_all.csv` as well, so each run re-ingested the
+    file it had written and the merged table grew duplicates every time -- 228
+    unique cells had become 587 rows. Means survive roughly intact under uniform
+    duplication but group counts do not, so dedupe explicitly as well.
+    """
+    parts = [p for p in sorted(RESULTS_DIR.glob(f"{stem}*.csv"))
+             if not p.name.endswith("_all.csv")]
     if not parts:
-        sys.exit(f"no {stem}*.csv in {RESULTS_DIR}")
+        sys.exit(f"no {stem}*.csv shards in {RESULTS_DIR}")
     df = pd.concat([pd.read_csv(p) for p in parts], ignore_index=True)
+    key = ["overseer", "target",
+           "held_out" if "loo" in stem else "dataset"]
+    before = len(df)
+    df = df.drop_duplicates(key, keep="last").reset_index(drop=True)
+    if len(df) != before:
+        print(f"  [{stem}] dropped {before - len(df)} duplicate rows")
     df["kind"] = np.where(df.overseer.map(FAMILY) == df.target.map(FAMILY),
                           "same-family", "cross-family")
     df["scale_gap"] = df.target.map(SIZE) / df.overseer.map(SIZE)
