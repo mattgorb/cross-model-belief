@@ -3,11 +3,14 @@
 % Build:  make        (tectonic; see the Makefile for the pdflatex route)
 %
 % Section files, so each can be drafted independently:
-%   abstract.tex   the abstract
-%   theory.tex     Section 2: the bound on what agreement can catch
-%   method.tex     Section 3: probes, the alignment map, the gates, the data
-% The empirical sections are written against results/ and are added as they
-% settle; paper/PLAN.md holds the section plan and the citation checklist.
+%   sections/abstract.tex   the abstract
+%   sections/theory.tex     Section 2: the bound on what agreement can catch
+%   sections/method.tex     Section 3: probes, the map, the gates, the data
+%   sections/refs.bib       bibliography
+%   sections/PLAN.md        section plan, framing decisions, citation checklist
+% Everything we write lives in sections/; the files beside this one are the
+% official TMLR template, vendored so the paper builds without fetching, and
+% LaTeX needs them next to main.tex to find them.
 \documentclass[10pt]{article}
 \usepackage{tmlr}
 % Accepted version: \usepackage[accepted]{tmlr}
@@ -47,7 +50,7 @@
 \begin{document}
 \maketitle
 
-\input{abstract}
+\input{sections/abstract}
 
 \section{Introduction}
 \label{sec:intro}
@@ -60,8 +63,8 @@
 %      and it is governed by error correlation, not accuracy (Sec.~\ref{sec:theory}).
 %   4. Contributions.
 
-\input{theory}
-\input{method}
+\input{sections/theory}
+\input{sections/method}
 
 \section{Experiments}
 \label{sec:experiments}
@@ -76,7 +79,7 @@
 
 \section{Related Work}
 \label{sec:related}
-% TODO. See the citation checklist in paper/PLAN.md.
+% TODO. See the citation checklist in paper/sections/PLAN.md.
 
 \section{Discussion and Limitations}
 \label{sec:discussion}
@@ -85,6 +88,6 @@
 % shared *belief* error from a shared *probe* failure (Sec.~\ref{sec:method}).
 
 \bibliographystyle{tmlr}
-\bibliography{refs}
+\bibliography{sections/refs}
 
 \end{document}

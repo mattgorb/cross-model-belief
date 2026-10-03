@@ -13,8 +13,8 @@ cross-model belief agreement has an irreducible cap and we report it.
 
 **Read `DESIGN.md` first** — it is the spec, and every script cites the section
 it implements. The write-up lives in [`paper/`](paper/) (skeleton, abstract, and
-the formal treatment of the false-agreement algebra in `theory.tex`, with the
-framing and venue decisions in `paper/PLAN.md`); the follow-on paper is
+the formal treatment of the false-agreement algebra in `sections/theory.tex`, with the
+framing and venue decisions in `paper/sections/PLAN.md`); the follow-on paper is
 [`future_work/`](future_work/).
 
 ## Quickstart
@@ -126,7 +126,7 @@ reach 1 unless the marginals match, so it is not comparable across pairs), the
 Fréchet bounds the rate must lie inside, and the detectable coverage
 `1 - FA/p_strong` that a disagreement router buys. The identity behind all of it
 is `FA = p1*p2 + rho*sqrt(p1(1-p1))*sqrt(p2(1-p2))` — exact, not a bound. See
-DESIGN.md §2.4 and `paper/theory.tex`.
+DESIGN.md §2.4 and `paper/sections/theory.tex`.
 
 **Transport is priced, not assumed.** Gate B reports `eps`, the transported
 probe's false-positive inflation at a matched positive rate, in the same units

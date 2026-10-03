@@ -6,7 +6,7 @@
 PAPER = main
 LATEX = pdflatex -interaction=nonstopmode -halt-on-error
 
-$(PAPER).pdf: $(PAPER).tex abstract.tex theory.tex refs.bib
+$(PAPER).pdf: $(PAPER).tex sections/*.tex sections/refs.bib
 	$(LATEX) $(PAPER)
 	-bibtex $(PAPER)
 	$(LATEX) $(PAPER)

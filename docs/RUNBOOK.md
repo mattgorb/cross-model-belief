@@ -150,7 +150,7 @@ Use `--keep-going` to see them anyway.
 
 Results land in `results/*.json` plus the printed verdicts. Write up the outcome
 in `results/RESULTS.md`, classified against the DESIGN.md §7 decision tree, then
-carry the numbers into `paper/` (the results sentence in `paper/abstract.tex` is
+carry the numbers into `paper/` (the results sentence in `paper/sections/abstract.tex` is
 deliberately left blank until Exp 1 has a number).
 
 ## Gotchas

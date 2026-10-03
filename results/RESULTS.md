@@ -72,7 +72,7 @@ Native probes, each model on its own activations. TruthfulQA.
 **same-family 0.269 vs cross-family 0.157 → FLOOR.** False agreement drops with
 model independence, so agreement is boundable rather than irreducible.
 
-**The pre-registered prediction holds** (paper/PLAN.md §3): same-family sits near
+**The pre-registered prediction holds** (paper/sections/PLAN.md §3): same-family sits near
 the Fréchet upper bound (ρ/ρ_max +0.66), cross-family partly decorrelates
 (+0.29 mean) and *never reaches independence* — ρ is positive in four of five
 pairs. The one negative value (qwen3-32b | gemma4-31b, −0.15) is the cell to

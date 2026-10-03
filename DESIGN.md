@@ -226,7 +226,7 @@ do not claim it. Implemented as `cmb.metrics.n_eff`, developed properly in
 applying them to probe-based cross-model oversight, adding the transport term, and
 measuring `rho` directly on internal readouts. Keep this light in the paper —
 framing that motivates the measurement, not a theorem. The formal version is
-`paper/theory.tex`.
+`paper/sections/theory.tex`.
 
 ---
 
@@ -612,7 +612,7 @@ submission**.
 
 ## 12. Where the paper lives
 
-- `paper/` — `main.tex` (title, skeleton), `abstract.tex`, `theory.tex` (the §2.4
+- `paper/` — `main.tex` (title, skeleton), `abstract.tex`, `sections/theory.tex` (the §2.4
   algebra, formally), `refs.bib`, and `PLAN.md`: framing, the two causes of false
   agreement and the attribution control, probe-type and layer decisions, the
   section plan, the citation checklist, and the venue (TMLR in December; ICML in

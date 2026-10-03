@@ -31,7 +31,7 @@ theory move in opposite directions:
   together, which is exactly what false agreement is made of.
 
 Substituting both into the false-agreement identity
-(`../paper/theory.tex`, Prop. 1, with the transport adjustment of §2.5) makes
+(`../paper/sections/theory.tex`, Prop. 1, with the transport adjustment of §2.5) makes
 false agreement a **curve in κ with an interior optimum**:
 
     FA(κ) = p₁ · p₂'(κ) + ρ(κ) · √(p₁(1−p₁)) · √(p₂'(κ)(1−p₂'(κ))),
@@ -51,7 +51,7 @@ measured, and the optimum is wherever they cross.
 2. **The FA(κ) curve** and its interior optimum, with ε(κ) and ρ(κ) shown
    separately so the tradeoff is visible rather than asserted.
 3. **The full N-model correlation floor.** Paper 1 carries `N_eff = N / (1 + (N−1)ρ̄)`
-   as a remark only (`../paper/theory.tex` §2.6, implemented as `cmb.metrics.n_eff`);
+   as a remark only (`../paper/sections/theory.tex` §2.6, implemented as `cmb.metrics.n_eff`);
    here it is developed properly — how ρ̄ behaves as the pool grows, whether
    adding a *family* rather than a *model* moves the floor, and what the cap
    `1/ρ̄` means for realistic overseer pools.

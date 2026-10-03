@@ -1,13 +1,13 @@
 # Paper 1 — writing plan
 
-The spec for the *science* is [`../DESIGN.md`](../DESIGN.md). This file holds the
+The spec for the *science* is [`../../DESIGN.md`](../../DESIGN.md). This file holds the
 decisions that are about the *paper*: framing, what goes in which section, the
 methodological additions that the experiments have to support, and the venue.
 
-Title and abstract live in [`main.tex`](main.tex) / [`abstract.tex`](abstract.tex);
+Title and abstract live in [`../main.tex`](../main.tex) / [`abstract.tex`](abstract.tex);
 the formal treatment of the false-agreement algebra is
 [`theory.tex`](theory.tex), and every quantity in it is implemented in
-[`../cmb/metrics.py`](../cmb/metrics.py).
+[`../../cmb/metrics.py`](../cmb/metrics.py).
 
 ## 1. Framing
 
@@ -33,7 +33,7 @@ measuring ρ on internal readouts.
 Separating these needs an **attribution control**, and it is what makes the
 result interpretable:
 
-- Gate A (`../experiments/gate_a_probe_truth.py`) is the first line: a probe that
+- Gate A (`../../experiments/gate_a_probe_truth.py`) is the first line: a probe that
   only works where output confidence already works is case (b) everywhere.
 - Include **adversarial items where the confound and the truth come apart** —
   TruthfulQA above all, plus familiar-vs-defamiliarized paraphrases of the same
@@ -67,7 +67,7 @@ result interpretable:
   layers so each map matches its probe's layer rather than forcing one site.
 - **Post-training check.** Run the same probe on base and instruct checkpoints of
   one model and ask whether post-training degrades transport at the last layer
-  (`../experiments/exp6_post_training.py`).
+  (`../../experiments/exp6_post_training.py`).
 
 ## 4. Section plan
 
@@ -77,10 +77,10 @@ result interpretable:
 | The Algebra of False Agreement | `theory.tex` (DESIGN.md §2.4) |
 | Method | DESIGN.md §2, §5, §6; probe types above |
 | Experiments | DESIGN.md §4 — Exp 0, Gates A/B, Exp 1–6 |
-| Results | `../results/RESULTS.md` + `results/*.json` |
+| Results | `../../results/RESULTS.md` + `results/*.json` |
 | Related Work | §5 below |
 | Discussion / Limitations | DESIGN.md §8, unabridged |
-| Future Work | `../future_work/paper2-representational-similarity.md` |
+| Future Work | `../../future_work/paper2-representational-similarity.md` |
 
 ## 5. Citation checklist
 
