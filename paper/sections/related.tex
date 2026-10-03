@@ -1,0 +1,93 @@
+% Section --- Related work. Every citation here was checked against the arXiv API
+% before being used; see tmlr.bib.
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Correlated errors undermine oversight --- at the output level.}
+The claim that models fail together, and that this is a problem for oversight
+built on agreement, is established and is not ours.
+\citet{goel2025alike} introduce a chance-adjusted measure of model similarity
+based on overlap in mistakes, and show that judges favour models similar to
+themselves, that weak-to-strong training works better when supervisor and student
+have complementary rather than overlapping knowledge, and that mistakes grow more
+similar as capability grows. \citet{kim2025correlated} measure error correlation
+across more than $350$ models and find models agreeing on the wrong answer around
+$60\%$ of the time when both err, with the correlation \emph{rising} with
+accuracy and persisting across architectures and providers.
+\citet{ding2026agree} audit agreement itself as a confidence signal and find it
+unreliable in the same direction.
+
+Our measurement is the internal-state counterpart of theirs. Every one of these
+works reads outputs, so none of them can distinguish two models reaching the same
+wrong answer by the same internal route from two reaching it by different routes
+--- which is exactly the distinction that decides whether a probe-based checker
+escapes the problem. Our chance-adjusted quantity, the error correlation
+normalized by the maximum its marginals permit, is the same \emph{kind} of
+statistic as their chance-adjusted agreement; we derive it from the exact
+decomposition of the false-agreement rate rather than defining it directly, which
+is what lets us say why family diversity fails to help.
+
+\paragraph{Probes, truth directions, and their failure modes.}
+\citet{burns2023ccs} recover a truth direction without supervision, and
+\citet{marks2024geometry} show the direction is linear and causally relevant.
+\citet{liu2023dissonance} examine where probes and outputs disagree and find
+probes often the more accurate of the two, which is the premise a probe-based
+checker needs. The method's limits are equally well documented:
+\citet{farquhar2024challenges} show unsupervised discovery can lock onto
+whichever salient binary feature the data offers rather than truth. We reproduce
+that failure --- our unsupervised probe reads truth on curated factual statements
+and not on adversarial misconceptions --- and it is why the probes we rely on are
+supervised.
+
+Closest in spirit to our question, \citet{pandey2026sycophancy} find a small set
+of attention heads carrying a ``this statement is wrong'' signal across twelve
+open-weight models from five labs, so a shared internal signal across models is
+not only plausible but observed. They study whether a model notices its own
+error; we study whether two models' readouts fail together, and whether that
+joint failure is detectable.
+
+\paragraph{Transporting probes between models.}
+Reusing a probe characterized on one model requires a map between activation
+spaces. \citet{chen2025stitching} fit affine maps between residual streams and
+transfer sparse autoencoders, probes and steering vectors across model sizes;
+\citet{oozeer2025interventions} transfer safety interventions through learned
+mappings across Llama, Qwen and Gemma. The counter-evidence matters too:
+\citet{zhang2026negative} report that a map can align representations well under
+an offline objective while the translated states remain unusable causally inside
+the receiver. Our Gate~B measures what transfer costs a probe in the only unit
+that matters for oversight --- discriminative performance lost --- and we report
+it per dataset rather than as a single verdict, because it ranges from almost
+nothing to total failure.
+
+\paragraph{Representational similarity, and why we do not lean on it.}
+CKA \citep{kornblith2019similarity} is the standard measure of whether two
+networks represent inputs alike, and the platonic representation hypothesis
+\citep{huh2024platonic} predicts convergence with scale and capability --- which,
+if it held strongly, would predict exactly the correlated failures above. We
+report CKA as context but not as the verdict on transferability, because a probe
+needs one direction to survive while CKA grades all of them: we observe a pair at
+CKA $0.49$ whose transported probe loses $0.004$ AUROC. CKA does predict transfer
+loss moderately across our cells, which we report, but it is the wrong instrument
+for the question.
+
+\paragraph{Scalable oversight.}
+Debate \citep{irving2018debate}, sandwiching \citep{bowman2022measuring} and
+weak-to-strong training \citep{burns2023weak} all place models in the checking
+role, and \citet{panickssery2024selfpreference} show judges recognize and favour
+their own generations, one concrete mechanism by which a checker's errors
+correlate with the checked model's. On the theoretical side,
+\citet{afrin2026ensembles} analyse evaluator ensembles under optimization
+pressure and prove that common-mode error is not identifiable from the judges'
+own scores --- disagreement reveals only the orthogonal component. Our
+empirical finding, that the shared blind spot is barely detectable from the
+activations that produced it, is the representation-level analogue of that
+result, reached from the other direction.
+
+\paragraph{Ensemble diversity.}
+The dependence of ensemble error on the covariance between members is classical
+\citep{brown2005diversity}, and the correlation floor we state for $N$ overseers
+is a restatement of it rather than a new result. The constraint that a joint
+distribution's marginals impose on how much two binary errors can overlap is
+older still \citep{frechet1951tableaux}. Our use of both is to turn them on
+probe-based oversight and to report where the measured quantities sit inside the
+bounds they imply.

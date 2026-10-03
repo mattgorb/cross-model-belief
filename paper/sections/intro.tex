@@ -1,0 +1,91 @@
+% Section 1 --- Introduction.
+\section{Introduction}
+\label{sec:intro}
+
+One language model checking another is now the default instrument of oversight.
+Judges grade benchmarks, filter pretraining corpora, supply reward signal, and
+watch deployed behaviour, and the appeal is obvious: a model is cheap, fast, and
+available in quantity where a human annotator is none of those things
+\citep{zheng2023judge}. The proposals that go beyond a single judge --- debate
+\citep{irving2018debate}, sandwiching \citep{bowman2022measuring},
+weak-to-strong training \citep{burns2023weak} --- all inherit the same
+arrangement: a model is held to account by other models.
+
+Every version of this rests on an assumption that is rarely stated and almost
+never tested. The checker has to fail \emph{differently} from the model it is
+checking. If the two share a mistake, no amount of checking surfaces it. And a
+checker that reads outputs is blind in two separate ways. It cannot see what the
+model keeps to itself, and it cannot see a mistake the two of them make
+together.
+
+The first blindness has a known answer. Linear probes read a model's internal
+state rather than its output, recovering a direction along which true and false
+claims separate \citep{burns2023ccs,marks2024geometry}. The probe literature has
+established that these directions exist, that they can be more accurate than the
+model's own stated answer \citep{liu2023dissonance}, and that the unsupervised
+version of the method is fragile in specific ways
+\citep{farquhar2024challenges}. A probe therefore gives a checker access to what
+the model represents rather than what it chose to say.
+
+Whether probes answer the second blindness is a different question, and it is the
+one we ask. The output-level version has been settled, and the answer is
+discouraging: model mistakes are substantially correlated, more so as models get
+more capable, and this undermines oversight schemes built on agreement
+\citep{goel2025alike,kim2025correlated}. But correlated \emph{outputs} do not
+have to mean correlated \emph{representations}. Two models might converge on the
+same answer through different internal routes, in which case a reader of
+internal state would see the disagreement an output-level judge misses. Nothing
+in the existing results rules that out, because nothing has measured it.
+
+\paragraph{False agreement.}
+We fit a probe on each of two models, read both on the same claim, and ask how
+often they are both wrong in the same direction: both read a claim as true when
+the claim is false. We call this \emph{false agreement}. It is the case
+disagreement-based oversight cannot see --- the two readouts match, nothing is
+flagged, and the answer is wrong.
+
+Its rate is not a free parameter. Restricting attention to the false claims, it
+decomposes exactly into a term set by how accurate the two probes are and a term
+set by how correlated their mistakes are, and it can never exceed the error rate
+of the more accurate probe alone (Section~\ref{sec:theory}). Accuracy enters only
+the first term. Two accurate checkers that fail together are therefore worse than
+two mediocre ones that fail apart, which is the sense in which the quantity to
+select for is not accuracy.
+
+\paragraph{What we do.}
+We measure false agreement across $49$ ordered model pairs drawn from ten
+open-weight models spanning four families and $1.7$B to $32$B parameters, on five
+datasets, with the overseer never larger than the model it oversees. Because a
+probe validated on one model is only useful elsewhere if it survives the trip, we
+also fit a linear map between each pair's activation spaces and report the cost
+of transport explicitly rather than assuming it away. Finally we ask the question
+the decomposition raises: if the blind spot is made of shared error, does shared
+error leave a signature in the activations that a classifier can learn --- so
+that the method could detect its own blind spot?
+
+\paragraph{Findings.}
+Three, in descending order of how much we expected them.
+
+First, false agreement is substantial: $4$--$23\%$ of false claims depending on
+the dataset, with the two probes' errors positively correlated in nearly every
+pair we measure. The blind spot is real at the level of internal belief, not only
+at the level of outputs.
+
+Second, and against the obvious prediction, it does \emph{not} shrink when the
+two models come from different families. The decomposition explains why: pairs
+from different families do have less correlated errors, but they arrive with
+higher individual error rates, and the two terms cancel. Choosing a checker from
+a different lab is not the lever it appears to be.
+
+Third, the blind spot is largely not visible in the activations that produced it.
+A direction fitted on the false agreements of four datasets does transfer to a
+fifth, but on the dataset where false agreement is most common it recovers only
+five further percentage points of the overseen model's errors beyond what
+disagreement already catches. It works well only where false agreement is already
+rare. This is the activation-level counterpart of a result proved at the level of
+judge scores, that common-mode error is not identifiable from the judges' own
+outputs \citep{afrin2026ensembles}.
+
+Taken together these bound how much oversight agreement between two models can
+provide --- roughly half of the overseen model's errors in our setting --- and
+locate the limit in shared error rather than in the accuracy of either checker.

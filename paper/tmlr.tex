@@ -8,6 +8,8 @@
 %
 % Section files, so each can be drafted independently:
 %   sections/abstract.tex   the abstract
+%   sections/intro.tex      Section 1
+%   sections/related.tex    related work
 %   sections/theory.tex     Section 2: the bound on what agreement can catch
 %   sections/method.tex     Section 3: probes, the map, the gates, the data
 % The bibliography is tmlr.bib, beside this file.
@@ -55,16 +57,7 @@
 
 \input{sections/abstract}
 
-\section{Introduction}
-\label{sec:intro}
-% TODO. The argument, in order:
-%   1. One model monitoring another is the deployed default, across evaluation,
-%      data filtering, reward and runtime monitoring.
-%   2. Every use assumes the two fail differently, and an output-level monitor is
-%      blind twice: to what is not expressed, and to shared error.
-%   3. Probes answer the first. Whether they answer the second is the question,
-%      and it is governed by error correlation, not accuracy (Sec.~\ref{sec:theory}).
-%   4. Contributions.
+\input{sections/intro}
 
 \input{sections/theory}
 \input{sections/method}
@@ -80,9 +73,7 @@
 % TODO. Numbers from results/sweep_base_all.csv, results/sweep_loo_all.csv and
 % results/pair_table.csv; see results/RESULTS.md for the write-up they come from.
 
-\section{Related Work}
-\label{sec:related}
-% TODO.
+\input{sections/related}
 
 \section{Discussion and Limitations}
 \label{sec:discussion}
