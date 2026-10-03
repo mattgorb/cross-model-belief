@@ -92,7 +92,7 @@ Bergen et al. / Goodfire (arXiv 2609.19101) · LLM-judge self-preference and
 perplexity bias · Fréchet (bounds) · ensemble bias–variance–covariance for the
 correlation floor · the author's own HELIX / CMP-CME / CME-GRPO line.
 
-Entries are in [`refs.bib`](refs.bib); the arXiv ids came from DESIGN.md §11 and
+Entries are in [`../tmlr.bib`](../tmlr.bib); the arXiv ids came from DESIGN.md §11 and
 **every one needs verifying before submission**.
 
 ## 6. Venue and timeline

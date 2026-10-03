@@ -6,7 +6,7 @@
 PAPER = tmlr
 LATEX = pdflatex -interaction=nonstopmode -halt-on-error
 
-$(PAPER).pdf: $(PAPER).tex sections/*.tex sections/refs.bib
+$(PAPER).pdf: $(PAPER).tex sections/*.tex tmlr.bib
 	$(LATEX) $(PAPER)
 	-bibtex $(PAPER)
 	$(LATEX) $(PAPER)
