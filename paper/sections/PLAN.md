@@ -4,7 +4,7 @@ The spec for the *science* is [`../../DESIGN.md`](../../DESIGN.md). This file ho
 decisions that are about the *paper*: framing, what goes in which section, the
 methodological additions that the experiments have to support, and the venue.
 
-Title and abstract live in [`../main.tex`](../main.tex) / [`abstract.tex`](abstract.tex);
+Title and abstract live in [`../main.tex`](../tmlr.tex) / [`abstract.tex`](abstract.tex);
 the formal treatment of the false-agreement algebra is
 [`theory.tex`](theory.tex), and every quantity in it is implemented in
 [`../../cmb/metrics.py`](../cmb/metrics.py).
@@ -73,7 +73,7 @@ result interpretable:
 
 | section | source |
 |---|---|
-| Introduction | DESIGN.md §0, §2; the four-step argument in `main.tex` |
+| Introduction | DESIGN.md §0, §2; the four-step argument in `tmlr.tex` |
 | The Algebra of False Agreement | `theory.tex` (DESIGN.md §2.4) |
 | Method | DESIGN.md §2, §5, §6; probe types above |
 | Experiments | DESIGN.md §4 — Exp 0, Gates A/B, Exp 1–6 |

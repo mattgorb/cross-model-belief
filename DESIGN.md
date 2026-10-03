@@ -612,7 +612,7 @@ submission**.
 
 ## 12. Where the paper lives
 
-- `paper/` — `main.tex` (title, skeleton), `abstract.tex`, `sections/theory.tex` (the §2.4
+- `paper/` — `tmlr.tex` (title, skeleton), `abstract.tex`, `sections/theory.tex` (the §2.4
   algebra, formally), `refs.bib`, and `PLAN.md`: framing, the two causes of false
   agreement and the attribution control, probe-type and layer decisions, the
   section plan, the citation checklist, and the venue (TMLR in December; ICML in

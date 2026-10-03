@@ -3,7 +3,7 @@
 # `make tectonic` is the one-command alternative and needs no TeX distribution
 # beyond tectonic itself (it fetches what it needs); it is what the paper has
 # actually been compiled with.
-PAPER = main
+PAPER = tmlr
 LATEX = pdflatex -interaction=nonstopmode -halt-on-error
 
 $(PAPER).pdf: $(PAPER).tex sections/*.tex sections/refs.bib
