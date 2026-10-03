@@ -44,48 +44,49 @@ the claim is false. We call this \emph{false agreement}. It is the case
 disagreement-based oversight cannot see --- the two readouts match, nothing is
 flagged, and the answer is wrong.
 
-Its rate is not a free parameter. Restricting attention to the false claims, it
-decomposes exactly into a term set by how accurate the two probes are and a term
-set by how correlated their mistakes are, and it can never exceed the error rate
-of the more accurate probe alone (Section~\ref{sec:theory}). Accuracy enters only
-the first term. Two accurate checkers that fail together are therefore worse than
-two mediocre ones that fail apart, which is the sense in which the quantity to
-select for is not accuracy.
+How much of it there can be is settled in advance by two quantities: how often
+each probe is wrong, and how much those two sets of mistakes overlap. Neither is
+sufficient on its own. A pair of probes can be individually excellent and still
+hide most of a model's errors if they are wrong on the same items, and no amount
+of accuracy in either one repairs that --- the overlap term is simply added on top.
+Section~\ref{sec:theory} makes this exact and derives the ceiling: the blind spot
+cannot be larger than the better probe's own error rate, and cannot be driven
+below the product of the two rates except by anti-correlated mistakes, which
+models trained on overlapping corpora do not have.
 
-\paragraph{What we do.}
-We measure false agreement across $49$ ordered model pairs drawn from ten
-open-weight models spanning four families and $1.7$B to $32$B parameters, on five
-datasets, with the overseer never larger than the model it oversees. Because a
-probe validated on one model is only useful elsewhere if it survives the trip, we
-also fit a linear map between each pair's activation spaces and report the cost
-of transport explicitly rather than assuming it away. Finally we ask the question
-the decomposition raises: if the blind spot is made of shared error, does shared
-error leave a signature in the activations that a classifier can learn --- so
-that the method could detect its own blind spot?
+\paragraph{Contributions.}
+Our subject is a pair of models and the two readouts taken from them, scored
+against ground truth to find the items on which both are wrong in the same
+direction. The study covers $49$ ordered pairs drawn from
+ten open-weight models across four families and more than an order of magnitude of
+scale, on five datasets, with the overseer never larger than the model it
+oversees. Four contributions follow.
 
-\paragraph{Findings.}
-Three, in descending order of how much we expected them.
+\begin{itemize}
+\itemsep0em
+\item \textbf{An exact decomposition of the blind spot}
+  (Section~\ref{sec:theory}), with an upper bound fixed by the more accurate
+  probe's own error rate. It is what tells us the quantity to select for is not
+  accuracy, and it is what later explains a result we did not expect.
+\item \textbf{The measurement at the level of internal belief}
+  (Section~\ref{sec:results}). False agreement is common, and the two probes'
+  errors are positively correlated in nearly every pair: the blind spot is a
+  property of what these models represent, not only of what they say.
+\item \textbf{A negative result on diversity.} Drawing the two models from
+  different families does not reduce false agreement. The decomposition accounts
+  for it: the gain in independence is paid for in accuracy, and the two effects
+  offset almost exactly. The obvious remedy is not one.
+\item \textbf{The cost of transport, and the limit of self-diagnosis.} A probe
+  validated on one model is only useful on another if it survives the map between
+  them, so we measure what the trip costs in discriminative performance rather
+  than assuming it is free --- it ranges from negligible to total failure across
+  datasets. We then ask whether the shared error that constitutes the blind spot
+  leaves a signature a classifier can learn, and find that it largely does not,
+  except where false agreement is already rare. This is the representation-level
+  counterpart of a result proved for judge scores, that common-mode error is not
+  identifiable from the judges' own outputs \citep{afrin2026ensembles}.
+\end{itemize}
 
-First, false agreement is substantial: $4$--$23\%$ of false claims depending on
-the dataset, with the two probes' errors positively correlated in nearly every
-pair we measure. The blind spot is real at the level of internal belief, not only
-at the level of outputs.
-
-Second, and against the obvious prediction, it does \emph{not} shrink when the
-two models come from different families. The decomposition explains why: pairs
-from different families do have less correlated errors, but they arrive with
-higher individual error rates, and the two terms cancel. Choosing a checker from
-a different lab is not the lever it appears to be.
-
-Third, the blind spot is largely not visible in the activations that produced it.
-A direction fitted on the false agreements of four datasets does transfer to a
-fifth, but on the dataset where false agreement is most common it recovers only
-five further percentage points of the overseen model's errors beyond what
-disagreement already catches. It works well only where false agreement is already
-rare. This is the activation-level counterpart of a result proved at the level of
-judge scores, that common-mode error is not identifiable from the judges' own
-outputs \citep{afrin2026ensembles}.
-
-Taken together these bound how much oversight agreement between two models can
-provide --- roughly half of the overseen model's errors in our setting --- and
-locate the limit in shared error rather than in the accuracy of either checker.
+\noindent Together these bound what agreement between two models' internal
+beliefs can deliver, and locate the limit in shared error rather than in the
+accuracy of either checker.

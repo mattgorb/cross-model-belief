@@ -1,37 +1,34 @@
-% Abstract. TMLR wants a single paragraph; the breaks below are rendered as one
-% block. No display math here on purpose -- the identity is stated in Sec. 2 and
-% described in words here.
+% Abstract. Results-forward: the setup gets one sentence, because the
+% introduction develops it properly and the two should not read alike.
+% TMLR wants a single paragraph; the % breaks below render as one block.
 \begin{abstract}
-Using one language model to monitor another's output has become the default
-instrument of oversight: judges grade benchmarks, filter training data, supply
-reward signal, and watch deployed behaviour. Every one of these uses rests on an
-assumption that is almost never tested: that the judge fails differently from the
-model it is judging. A judge that reads outputs is blind twice over. It cannot see
-what the model keeps to itself, and it cannot see a mistake the two of them make
-together.
+Oversight by one language model of another assumes the two fail differently, and
+a checker that reads outputs cannot test that assumption on anything the model
+leaves unsaid. We therefore ask it of internal state: we fit a linear probe on
+each of two models, read both on the same claim, and measure \emph{false
+agreement}, where both probes report a claim as true and the claim is false. This
+is the case disagreement-based oversight cannot see.
 %
-Probes address the first blindness by not reading outputs at all. They recover a
-truth direction from the model's internal state, so the judge sees what the model
-represents rather than what it chose to say. Whether they address the second is
-our question.
+The rate is not free to vary. On the false claims it decomposes exactly into a
+term set by the two probes' accuracies and a term set by the correlation between
+their mistakes, and it can never exceed the error rate of the more accurate probe
+alone. Accuracy enters only the first term, so two accurate checkers that fail
+together are worse than two mediocre ones that fail apart.
 %
-Fitting probes on two models and comparing their readouts, we characterize
-\emph{false agreement}: both probes read a claim as true and the claim is false.
-Its rate splits exactly into two parts, one set by how accurate the two probes
-are and one by how correlated their mistakes are, and it can never exceed the
-error rate of the better probe alone. Accuracy enters only the first part, so two
-accurate judges that fail together are worse than two mediocre ones that fail
-apart. We measure this across model pairs varying in family and scale, transport
-probes with a linear alignment map, and report the cost of transport explicitly.
+Measuring this across $49$ model pairs from four families and $1.7$B to $32$B
+parameters, on five datasets, we find false agreement on $4$--$23\%$ of false
+claims, with positively correlated probe errors in nearly every pair. It does
+\emph{not} fall when the two models come from different families: such pairs do
+have less correlated mistakes, but they carry higher individual error rates, and
+the two terms cancel. Transporting a probe between models through a linear map
+costs almost nothing on some datasets and fails outright on others, so we report
+that cost rather than assume it. Finally, the blind spot is largely invisible in
+the activations that produced it: a direction fitted on the false agreements of
+four datasets transfers to a fifth, but adds only five percentage points of
+caught errors beyond what disagreement already catches on the dataset where false
+agreement is most common, working well only where it is already rare.
 %
-Across $49$ pairs spanning four families and $1.7$B to $32$B parameters, false
-agreement accounts for $4$--$23\%$ of false claims and does \emph{not} fall when
-the two models come from different families: the two parts cancel, because less
-correlated mistakes arrive with higher individual error rates. Agreement between
-internal beliefs therefore catches roughly half of the overseen model's errors,
-and a direction fitted on the false agreements of four datasets recovers only five
-further points of the remainder on a fifth.
-%
-The result bounds how much oversight agreement between models can provide, and
-locates the limit in shared error rather than in judge accuracy.
+Agreement between two models' internal beliefs therefore accounts for roughly
+half of the overseen model's errors in our setting. The limit lies in shared
+error, and is not removed by choosing a checker from a different family.
 \end{abstract}
