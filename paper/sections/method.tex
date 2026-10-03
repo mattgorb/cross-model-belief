@@ -14,7 +14,11 @@ For a model and a claim we build a contrast pair: the claim followed by
 \texttt{Is this claim true? Yes} and the same prefix followed by \texttt{No}. The
 two halves differ in a single token, which is deliberate --- the difference
 between them is then a statement about the claim rather than about the surface
-form. We read the final layer's mean-pooled hidden state for each half.
+form. We read the final layer's mean-pooled hidden state for each half. The final layer
+is where cross-model linear compatibility has been localized
+\citep{gorbett2026ventriloquist}, which is the site this method needs; it also
+means a transported probe reads a \emph{late-stage} representation, and we use
+that term rather than claiming access to belief.
 
 We compare three linear probes on identical activations, differing only in how
 the direction is chosen:
@@ -56,7 +60,9 @@ confidence there.
 
 To read one model's probe on another we fit a ridge map between their activation
 spaces on paired activations --- the same inputs through both models --- in both
-directions. Three choices:
+directions. Linearity is the form identifiability results point at
+\citep{nielsen2026logit} and the form shown to preserve downstream structure
+between independent models \citep{gorbett2026ventriloquist}. Three choices:
 
 \begin{itemize}
 \itemsep0em

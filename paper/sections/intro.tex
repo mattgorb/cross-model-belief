@@ -54,6 +54,39 @@ cannot be larger than the better probe's own error rate, and cannot be driven
 below the product of the two rates except by anti-correlated mistakes, which
 models trained on overlapping corpora do not have.
 
+\paragraph{Why a linear map, and why it cuts both ways.}
+Reading one model's probe on another requires putting the two activation spaces
+in correspondence, and the choice of a \emph{linear} map is not a convenience.
+For discriminative models including autoregressive language models,
+identifiability results imply that two models inducing the same conditional
+distribution have representations equal up to an invertible linear transformation
+\citep{nielsen2026logit}; a linear map is the object the theory says should
+suffice. Empirically the same conclusion arrives from the other direction. The
+platonic representation hypothesis holds that independently trained models
+converge toward a shared representation as they scale \citep{huh2024platonic},
+and affine maps between the late hidden states of independent models do preserve
+decision boundaries and confidence structure well enough that one model's states
+can sometimes be decoded by another's frozen output head
+\citep{gorbett2026ventriloquist}.
+
+That convergence is what makes this paper's method possible, and it is also what
+makes the method's failure predictable. If two models come to represent the world
+the same way, they are wrong about the same things: the hypothesis that licenses
+reading model $A$'s probe on model $B$ predicts that the two readouts will share
+a blind spot. Both halves of that tension are measurable, and we measure both.
+
+Two cautions follow, and we carry them through the paper rather than relegating
+them. First, the compatibility that linear maps exploit has been localized to the
+final one or two layers --- a late-stage, output-space phenomenon rather than
+evidence of shared reasoning \citep{gorbett2026ventriloquist} --- so what a
+transported probe reads is a late-stage representation, and we say that rather
+than claiming access to belief. Second, closeness of output distributions does not
+imply linear representational similarity: KL divergence is a poor control on the
+quantity that governs whether a probe survives a map, which is why a pair of
+models can agree in their outputs while differing in the structure a probe reads
+\citep{nielsen2026logit}. That gap is precisely the room in which an
+internal-state measurement can say something an output-level one cannot.
+
 \paragraph{Contributions.}
 Our subject is a pair of models and the two readouts taken from them, scored
 against ground truth to find the items on which both are wrong in the same

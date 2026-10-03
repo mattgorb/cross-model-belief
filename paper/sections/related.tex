@@ -48,7 +48,10 @@ checker needs. The method's limits are equally well documented:
 whichever salient binary feature the data offers rather than truth. We reproduce
 that failure --- our unsupervised probe reads truth on curated factual statements
 and not on adversarial misconceptions --- and it is why the probes we rely on are
-supervised.
+supervised. Truth directions are also known not to transfer freely across
+\emph{tasks} and logical forms within a single model
+\citep{bao2025probing}, which is the within-model analogue of the
+across-dataset transfer we measure.
 
 Closest in spirit, \citet{pandey2026sycophancy} read internal state rather than
 outputs, and find the same small set of attention heads carrying a ``this
@@ -73,16 +76,69 @@ that matters for oversight --- discriminative performance lost --- and we report
 it per dataset rather than as a single verdict, because it ranges from almost
 nothing to total failure.
 
-\paragraph{Representational similarity, and why we do not lean on it.}
+\paragraph{Representational convergence, and what it licenses.}
+The platonic representation hypothesis \citep{huh2024platonic} holds that
+independently trained models converge toward a shared representation as they
+scale, and it is the premise on which cross-model probing rests: without some
+such convergence there is no reason a probe fitted on one model should mean
+anything read on another. The theoretical form of the claim is sharper.
+Identifiability results for discriminative models imply that two models inducing
+the same conditional distribution have representations equal up to an invertible
+linear transformation, and \citet{nielsen2026logit} ask what survives when the
+distributions are merely close rather than equal. Their answer matters for us
+twice over. Closeness in a logit-based distance does yield linear similarity
+guarantees, which is the licence for using a linear map at all. But closeness in
+KL does \emph{not}: two models can match each other's predictions while failing to
+preserve linear-probe recoverability of the same concepts. Output agreement is
+therefore not evidence of representational agreement, which is the gap the
+output-level studies above cannot see into and this paper measures directly.
+
+\paragraph{Transporting probes between models.}
+Several lines of work fit maps between activation spaces and move something
+through them. \citet{gorbett2026ventriloquist} learn affine maps between the
+final hidden states of independent models and find downstream performance largely
+preserved --- decision boundaries and confidence structure both --- with linear
+alignment sometimes sufficient to decode one model's states through another's
+frozen output head. Three of their findings bound what a transported probe can be
+said to measure, and we adopt all three. Compatibility localizes to the final one
+or two layers, making it a late-stage, output-space phenomenon rather than shared
+reasoning; transfer is asymmetric, with strong-to-weak mappings outperforming
+weak-to-strong and source capacity the limiting factor; and tokenizer overlap
+predicts success. We observe the same asymmetry in a different task, in the
+direction their account predicts.
+
+\citet{chen2025stitching} fit affine maps between residual streams and transfer
+sparse autoencoders, probes and steering vectors across model sizes;
+\citet{oozeer2025interventions} transfer safety interventions through learned
+mappings across Llama, Qwen and Gemma. The counter-evidence matters as much:
+\citet{zhang2026negative} report a map aligning representations well under an
+offline objective while the translated states remain unusable causally inside the
+receiver. Our transport measurement is deliberately in the units that decide the
+question for oversight --- discriminative performance lost by the probe --- and we
+report it per dataset and per direction, because it ranges from almost nothing to
+total failure.
+
 CKA \citep{kornblith2019similarity} is the standard measure of whether two
-networks represent inputs alike, and the platonic representation hypothesis
-\citep{huh2024platonic} predicts convergence with scale and capability --- which,
-if it held strongly, would predict exactly the correlated failures above. We
-report CKA as context but not as the verdict on transferability, because a probe
-needs one direction to survive while CKA grades all of them: we observe a pair at
-CKA $0.49$ whose transported probe loses $0.004$ AUROC. CKA does predict transfer
-loss moderately across our cells, which we report, but it is the wrong instrument
-for the question.
+networks represent inputs alike, and we report it as context rather than as the
+verdict on transportability. A probe needs one direction to survive where CKA
+grades all of them, and the two come apart: we observe a pair at CKA $0.49$ whose
+transported probe loses $0.004$ AUROC. CKA does predict transfer loss moderately
+across our cells, which we report, but \citet{nielsen2026logit} identify the
+quantity that should predict it, and testing that in this setting is work we have
+not done.
+
+\paragraph{Cross-model disagreement as a signal.}
+The complement of what we study has been shown to work.
+\citet{gorbett2026disagreement} use a second model's surprise at the first's
+answer as a label-free correctness signal, requiring one forward pass and no
+generation from the verifier, and report substantially better detection of
+confident errors than within-model uncertainty baselines. That establishes that
+cross-model \emph{disagreement} carries correctness information in output space.
+This paper asks the opposite question --- what cross-model \emph{agreement}
+misses --- and moves the measurement into representation space. The free coverage
+in our operating-point analysis is that signal, read from probe verdicts rather
+than from token surprise, and the comparison between the two spaces is one of our
+gates.
 
 \paragraph{Scalable oversight.}
 Debate \citep{irving2018debate}, sandwiching \citep{bowman2022measuring} and
