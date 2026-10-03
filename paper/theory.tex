@@ -10,7 +10,7 @@
 %
 % Every quantity in this section has an implementation in cmb/metrics.py; the
 % margin comments name it.
-\section{The Algebra of False Agreement}
+\section{What Agreement Can Catch}
 \label{sec:theory}
 
 \subsection{Setup}
@@ -149,13 +149,13 @@ a correction.
 When the second reader is not a natively fitted probe but a probe carried across
 models through the alignment map, its false-positive rate degrades:
 \[
-  p_2' = p_2 + \eps ,
+  p_2' = p_2 + \varepsilon ,
 \]
-where $\eps$ is the Gate~B degradation --- native minus transported discriminative
-performance, converted to an error rate at a matched threshold. We measure $\eps$
+where $\varepsilon$ is the Gate~B degradation --- native minus transported discriminative
+performance, converted to an error rate at a matched threshold. We measure $\varepsilon$
 as the realized inflation of the false-positive rate at the threshold that holds
 the probe's positive rate fixed, rather than reading it off an AUROC gap, so that
-$\eps$ enters \eqref{eq:identity} in the same units as $p_2$.
+$\varepsilon$ enters \eqref{eq:identity} in the same units as $p_2$.
 
 Two consequences shape the reporting. First, $\FA$ is reported \emph{twice}, once
 with native probes and once with transported ones; the gap between the two is the

@@ -16,6 +16,11 @@ $(PAPER).pdf: $(PAPER).tex abstract.tex theory.tex refs.bib
 tectonic:
 	tectonic -X compile $(PAPER).tex --outdir .
 
+# The TMLR style files (tmlr.sty, tmlr.bst, fancyhdr.sty, math_commands.tex)
+# come from the official template and are vendored here so the paper builds
+# without fetching anything. math_commands.tex already defines \Cov, \Var, \E
+# and \eps, so main.tex must not redefine them.
+
 clean:
 	rm -f *.aux *.bbl *.blg *.log *.out *.toc $(PAPER).pdf
 

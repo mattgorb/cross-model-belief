@@ -1,0 +1,146 @@
+% Section 3 --- Method. What is fitted, on what, and what each step can rule out.
+\section{Method}
+\label{sec:method}
+
+Three objects are fitted, and keeping them separate is what makes a negative
+result attributable: a \emph{probe} per model, an \emph{alignment map} per pair,
+and a \emph{direction} that scores false agreement. Each is fitted on data the
+next one is not scored on.
+
+\subsection{The probe}
+\label{sec:method:probe}
+
+For a model and a claim we build a contrast pair: the claim followed by
+\texttt{Is this claim true? Yes} and the same prefix followed by \texttt{No}. The
+two halves differ in a single token, which is deliberate --- the difference
+between them is then a statement about the claim rather than about the surface
+form. We read the final layer's mean-pooled hidden state for each half.
+
+We compare three linear probes on identical activations, differing only in how
+the direction is chosen:
+
+\begin{itemize}
+\itemsep0em
+\item \textbf{CCS} \citep{burns2023ccs}, unsupervised, fitted by the
+  consistency-plus-confidence objective.
+\item \textbf{Mass-mean}, the difference of class means, which
+  \citet{marks2024geometry} show is the causally faithful direction.
+\item \textbf{Logistic regression} on the same features, the standard
+  linear-probing baseline.
+\end{itemize}
+
+Two implementation points matter enough to state, because getting either wrong
+produces a probe that looks healthy and reads nothing. First, CCS requires each
+half of the contrast pair to be standardized \emph{separately}. The halves differ
+by one token, so their difference contains a large constant direction --- the
+token identity, measured at roughly $1.7\times$ the item-to-item variation --- and
+a shared normalizer leaves it in place. CCS then drives both loss terms to zero by
+reading that direction alone, giving $p^+ \approx 1$ and $p^- \approx 0$ on every
+item: perfectly consistent, perfectly confident, and uninformative. Second, and
+for the same reason, restarts cannot be ranked by training loss, because the
+degenerate solution attains a lower loss ($\sim\!10^{-4}$) than any probe that
+tracks truth ($\sim\!10^{-2}$). We reject restarts whose belief output has
+near-zero spread across items, which is a label-free criterion, before ranking the
+survivors.
+
+\paragraph{Does the probe read truth, or confidence?}
+A probe that merely re-encoded the model's stated confidence would be useless for
+oversight, since one could read the output instead. We therefore score every
+probe on the half of items the model is \emph{most} confident about, against the
+model's own signed confidence on the same items. Confidently wrong items are the
+ones oversight has to catch, and a probe earns its place only by beating
+confidence there.
+
+\subsection{The alignment map}
+\label{sec:method:map}
+
+To read one model's probe on another we fit a ridge map between their activation
+spaces on paired activations --- the same inputs through both models --- in both
+directions. Three choices:
+
+\begin{itemize}
+\itemsep0em
+\item \textbf{Per-dimension standardization}, not mean-centring alone. A handful
+  of dimensions carry most of the variance (on one model the largest
+  per-dimension standard deviation is $542\times$ the median, and the variance has
+  an effective rank near $1$), so an unstandardized least-squares objective, and
+  the $R^2$ that scores it, chiefly measure whether the map predicted those few
+  dimensions.
+\item \textbf{Fitted without labels, on everything available.} The map needs only
+  paired inputs, so restricting it to one dataset's labelled split wastes most of
+  the data. The fit is sample-limited rather than geometry-limited: held-out
+  standardized $R^2$ at the final layer rises from $0.70$ at $3$k rows to $0.83$
+  at $16$k and is still climbing.
+\item \textbf{Scored by what it carries, not by how well it fits.} We report
+  \emph{transfer loss}: the AUROC a probe gives up when read on the other model
+  through the map rather than on the model it was fitted on. CKA and map $R^2$ are
+  reported beside it as context. They are different questions --- a probe needs one
+  direction to survive, those grade all of them --- and they disagree: we observe a
+  pair at CKA $0.49$ and $R^2 \approx 0.5$ whose transported probe loses $0.004$.
+\end{itemize}
+
+\subsection{The false-agreement direction}
+\label{sec:method:direction}
+
+Within the subset where both probes read ``true'', we fit a linear classifier to
+separate the genuinely true claims from the false ones. The feature space
+concatenates, for both models, the contrast \emph{difference} and the contrast
+\emph{mean}, with the second model pushed into the first's space by the map. The
+mean is kept deliberately: a confound shared by both halves of a pair survives in
+the mean and cancels in the difference, and that confound is what false agreement
+is partly made of --- a difference-only space would be engineered not to show it.
+
+Two controls accompany every number. A \textbf{permutation control} refits the
+direction on shuffled labels; because the feature space has tens of thousands of
+columns, a direction fitted on noise is effectively a random projection and its
+AUROC has a wide distribution, so we take several permutations and report the
+spread. A margin smaller than that spread is not evidence. An
+\textbf{output-confidence baseline} asks whether the activation space is needed
+at all.
+
+\subsection{Protocol}
+\label{sec:method:protocol}
+
+Splits are group-aware: a true/false pair built from one source question never
+straddles the train/test boundary. Within a dataset, probes and map are fitted on
+the train split and everything is scored on the test split.
+
+The generalization test is leave-one-dataset-out. For each held-out dataset the
+probes and the map are fitted on the other datasets' train splits and the
+direction on their test splits, so the direction never learns from items whose
+verdicts its own probes could have memorized, and the held-out dataset is unseen
+by all three objects. One detail is necessary rather than cosmetic: a probe keeps
+its direction across datasets but not its threshold, because activation scale
+shifts and the fitted boundary lands in the wrong place. Left uncalibrated this
+produced zero agreements on one dataset and $99.7\%$ disagreement on another ---
+invisible in AUROC, which is threshold-free, but fatal to a subset defined by a
+threshold. We therefore hold each probe's own positive rate fixed at its value
+where it was fitted and read the threshold off the deployment scores, which needs
+no labels.
+
+\paragraph{Models and data.}
+Ten open-weight models spanning four families and $1.7$B to $32$B parameters,
+including two base/instruct pairs, giving $49$ ordered pairs in which the overseer
+is never larger than the model it oversees. Five datasets: curated true/false
+statements \citep{marks2024geometry}, TruthfulQA
+\citep{lin2022truthfulqa}, BoolQ, RTE and IMDB. Activations are extracted in
+\texttt{fp16} and cached, so every analysis downstream is deterministic and needs
+no accelerator.
+
+\paragraph{Reasoning models.}
+All but one family are hybrid thinking models. We extract with no chat template
+and thinking off, so no reasoning trace is generated. This keeps the comparison
+identical across reasoning and non-reasoning models and keeps the output-space
+baseline a genuine single-token Yes/No logprob, which it would not be if the next
+token began a trace. The probe therefore reads \emph{pre-reasoning} belief, and we
+say so rather than calling it belief.
+
+\paragraph{What we do not separate.}
+False agreement has two possible causes: the probes faithfully report a belief the
+two models share and that belief is wrong, or both probes fail in the same way,
+tracking familiarity rather than truth. Distinguishing them requires an
+attribution control --- recovering a prominence direction from familiar versus
+defamiliarized phrasings of the same claim and testing whether false agreements lie
+along it --- which we have not run. Our claims are therefore about the agreement of
+probe readouts, and we are explicit where that is weaker than a claim about the
+models themselves.

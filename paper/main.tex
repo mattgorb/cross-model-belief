@@ -1,21 +1,25 @@
-% Shared (Mis)Understanding — main document.
+% Shared (Mis)Understanding --- TMLR submission.
 %
-% Build:  make -C paper        (pdflatex -> bibtex -> pdflatex x2)
+% Build:  make        (tectonic; see the Makefile for the pdflatex route)
 %
-% Section files are kept separate so each can be drafted independently:
-%   abstract.tex  the abstract (title/authors live here in \paperabstract)
-%   theory.tex    Section 2, the algebra of false agreement (DESIGN.md §2.4)
-% Empirical sections are written against the experiment scripts and are added
-% as they produce numbers; see paper/PLAN.md for the section plan.
-\documentclass[11pt]{article}
+% Section files, so each can be drafted independently:
+%   abstract.tex   the abstract
+%   theory.tex     Section 2: the bound on what agreement can catch
+%   method.tex     Section 3: probes, the alignment map, the gates, the data
+% The empirical sections are written against results/ and are added as they
+% settle; paper/PLAN.md holds the section plan and the citation checklist.
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+% Accepted version: \usepackage[accepted]{tmlr}
+% Preprint / arXiv: \usepackage[preprint]{tmlr}
 
-\usepackage[margin=1in]{geometry}
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
-\usepackage{microtype}
-\usepackage{xcolor}   % only for the [Results sentence.] placeholder in abstract.tex
-\usepackage[numbers,sort&compress]{natbib}
-\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
 
 \newtheorem{proposition}{Proposition}
 \newtheorem{corollary}[proposition]{Corollary}
@@ -26,14 +30,19 @@
 \newcommand{\FA}{\mathrm{FA}}                 % false-agreement rate
 \newcommand{\Neff}{N_{\mathrm{eff}}}          % effective independent overseers
 \newcommand{\rhobar}{\bar{\rho}}
+% math_commands.tex already provides \Cov, \Var and \E; only \Prob is missing.
 \newcommand{\Prob}{\mathbb{P}}
-\newcommand{\Cov}{\mathrm{Cov}}
-\newcommand{\eps}{\varepsilon}
 
-\title{Shared (Mis)Understanding:\\
-       Limits of Cross-Model Agreement in Scalable Oversight}
-\author{Matthew Gorbett}
-\date{\today}
+\title{Shared (Mis)Understanding:\\Limits of Cross-Model Agreement in Scalable Oversight}
+
+% Authors are hidden while the tmlr package is used without [accepted] or
+% [preprint]; a non-anonymous submission is rejected without review.
+\author{\name Anonymous \email anon@example.com \\
+      \addr Anonymous Institution}
+
+\def\month{12}
+\def\year{2026}
+\def\openreview{\url{https://openreview.net/forum?id=XXXX}}
 
 \begin{document}
 \maketitle
@@ -43,50 +52,39 @@
 \section{Introduction}
 \label{sec:intro}
 % TODO. The argument, in order:
-%   1. Overseeing a model with a model assumes the two fail differently.
-%   2. Output-level overseers are blind twice over: to what is not expressed,
-%      and to shared error. Probes fix the first; this paper tests the second.
-%   3. False agreement is the quantity that bounds the method, and it is
-%      governed by error correlation, not by individual accuracy (Sec.~\ref{sec:theory}).
-%   4. Contributions, mirroring DESIGN.md §3.
+%   1. One model monitoring another is the deployed default, across evaluation,
+%      data filtering, reward and runtime monitoring.
+%   2. Every use assumes the two fail differently, and an output-level monitor is
+%      blind twice: to what is not expressed, and to shared error.
+%   3. Probes answer the first. Whether they answer the second is the question,
+%      and it is governed by error correlation, not accuracy (Sec.~\ref{sec:theory}).
+%   4. Contributions.
 
 \input{theory}
-
-\section{Method}
-\label{sec:method}
-% TODO. Probes (CCS, mass-mean, LR), the linear alignment map, the gates.
-% Mirrors DESIGN.md §2 and §4; cite the scripts in experiments/.
+\input{method}
 
 \section{Experiments}
 \label{sec:experiments}
-% TODO. Exp 0, Gates A/B, Exp 1--5 (DESIGN.md §4); numbers come from
-% results/*.json via the scripts in experiments/.
+% TODO. The gates (does the probe read truth; does the map carry it), the
+% false-agreement measurement over 49 pairs, the leave-one-dataset-out transfer
+% of the false-agreement direction, and the operating-point analysis.
 
 \section{Results}
 \label{sec:results}
-% TODO. Headline: the false-agreement rate and its decomposition, same-family
-% vs cross-family, native vs transported. See results/RESULTS.md.
+% TODO. Numbers from results/sweep_base_all.csv, results/sweep_loo_all.csv and
+% results/pair_table.csv; see results/RESULTS.md for the write-up they come from.
 
 \section{Related Work}
 \label{sec:related}
-% TODO. See the citation checklist in paper/PLAN.md §5.
+% TODO. See the citation checklist in paper/PLAN.md.
 
 \section{Discussion and Limitations}
 \label{sec:discussion}
-% TODO. DESIGN.md §8 threats, verbatim in spirit: prominence vs truth,
-% contamination, the transport blind spot, process vs knowledge independence,
-% and the fact that this is reliability/routing, not strong scalable oversight.
+% TODO. Chief among them: the probes that work are supervised, so the claim is
+% "fit once, deploy unlabelled", not "label-free"; and we do not yet separate a
+% shared *belief* error from a shared *probe* failure (Sec.~\ref{sec:method}).
 
-\section{Future Work}
-\label{sec:future}
-% Predicting oversight reliability from representational similarity (CKA -> rho)
-% is a separate paper; see ../future_work/paper2-representational-similarity.md.
-
-% Draft convenience: render every entry in refs.bib while the body is still a
-% skeleton with no \cite commands. Remove before submission.
-\nocite{*}
-
-\bibliographystyle{plainnat}
+\bibliographystyle{tmlr}
 \bibliography{refs}
 
 \end{document}
