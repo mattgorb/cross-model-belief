@@ -22,13 +22,17 @@ read from the environment and never written to disk.
 
 from __future__ import annotations
 
-import os
 from typing import Sequence
 
 import numpy as np
 
 from .models import ItemFeatures
 from .prompts import SUFFIX, claim_text, contrast_pair
+
+# NOTE: nothing else may be imported at module level. NDIF serializes the trace
+# body together with its enclosing scope and refuses anything outside its
+# whitelist -- an `import os` here is enough to get the whole request rejected
+# with "Module os is not whitelisted", even though the trace never calls it.
 
 # Module path to the decoder layers, by architecture family. nnsight addresses
 # submodules by attribute path, which differs between model families.
@@ -41,6 +45,8 @@ class NDIFModel:
 
     def __init__(self, key: str, hf_name: str | None = None,
                  remote: bool = True, batch_size: int = 16):
+        import os
+
         from nnsight import CONFIG, LanguageModel
 
         api_key = os.environ.get("NDIF_API_KEY")
@@ -51,11 +57,15 @@ class NDIFModel:
         if api_key:
             CONFIG.set_default_api_key(api_key)
 
+        from .config import MODELS
+
+        spec = MODELS.get(key)
         self.key = key
+        self.hf_name = hf_name or (spec.hf_name if spec else key)
         self.remote = remote
         self.batch_size = batch_size
         # Parameters are not downloaded for a remote model, so this is cheap.
-        self.lm = LanguageModel(hf_name or key)
+        self.lm = LanguageModel(self.hf_name)
         self.tok = self.lm.tokenizer
         self.layers = self._layers()
         self.n_layers = len(self.layers)
@@ -77,24 +87,42 @@ class NDIFModel:
     # -- the one remote call ------------------------------------------------
 
     def _trace_batch(self, texts: Sequence[str], layer: int):
-        """Mean-pooled and last-token hidden states for a batch, one round trip."""
+        """Mean-pooled and last-token hidden states for a batch, one round trip.
+
+        Left padding, so the final real token of every row sits at index -1. That
+        makes last-token pooling an index rather than a gather, and lets the
+        logits be saved at one position instead of for the whole sequence --- the
+        difference between a four-megabyte response and a hundred-megabyte one.
+        """
         import torch
 
+        side = self.tok.padding_side
+        self.tok.padding_side = "left"
+        if self.tok.pad_token is None:
+            self.tok.pad_token = self.tok.eos_token
         enc = self.tok(list(texts), return_tensors="pt", padding=True,
                        truncation=True, max_length=512)
-        with self.lm.trace(enc, remote=self.remote):
-            h = self.layers[layer].output[0].save()
-            logits = self.lm.output.logits.save()
+        self.tok.padding_side = side
+
+        lm, block = self.lm, self.layers[layer]   # locals: the trace body closes
+        with lm.trace(enc, remote=self.remote):   # over these and nothing else
+            hs = block.output.save()
+            final = lm.output.logits[:, -1, :].save()
+
+        h = hs[0] if isinstance(hs, tuple) else hs
         h = h.detach().float().cpu().numpy()
+        if h.ndim != 3:
+            raise RuntimeError(
+                f"expected [batch, seq, hidden] from {self.key} layer {layer}, "
+                f"got {h.shape}; the module's output shape differs for this "
+                f"architecture.")
         mask = enc["attention_mask"].numpy().astype(bool)
         mean = np.stack([h[i][mask[i]].mean(0) for i in range(len(texts))])
-        last = np.stack([h[i][mask[i]][-1] for i in range(len(texts))])
-        lg = logits.detach().float().cpu()
-        idx = mask.sum(1) - 1                       # final real token per row
-        final = torch.stack([lg[i, idx[i]] for i in range(len(texts))])
-        return mean, last, final
+        last = h[:, -1, :]                        # left padding puts it here
+        return mean, last, final.detach().float().cpu()
 
     def _p_yes(self, final_logits, yes_id: int, no_id: int) -> np.ndarray:
+        """P(yes) against P(no) at the position after the question, as locally."""
         import torch
 
         pair = torch.stack([final_logits[:, yes_id], final_logits[:, no_id]], -1)

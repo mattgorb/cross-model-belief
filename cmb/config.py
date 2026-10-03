@@ -56,6 +56,7 @@ class ModelSpec:
     base: bool = False        # pre-post-training checkpoint
     gated: bool = False       # needs HF_TOKEN and an accepted license
     multimodal: bool = False  # ...ForConditionalGeneration wrapper, not ...ForCausalLM
+    remote: bool = False      # executed on NDIF rather than locally
 
 
 MODELS = {
@@ -103,6 +104,20 @@ MODELS = {
                   gated=True),
         ModelSpec("llama-8b-base", "meta-llama/Llama-3.1-8B", "llama", 32,
                   base=True, gated=True),
+        # -- Hosted on NDIF and read remotely through nnsight (cmb/ndif.py).
+        # These exist for one reason: parameter count predicts error correlation
+        # at -0.24 over the local models, whose range is 1.7B-32B. A ladder that
+        # reaches 405B is what makes the scale question answerable. They are an
+        # older generation than the local set, so a pair mixing the two carries a
+        # generation confound that has to be named.
+        ModelSpec("llama31-70b", "meta-llama/Llama-3.1-70B-Instruct", "llama", 80,
+                  remote=True),
+        ModelSpec("llama31-70b-base", "meta-llama/Llama-3.1-70B", "llama", 80,
+                  base=True, remote=True),
+        ModelSpec("llama31-405b", "meta-llama/Llama-3.1-405B-Instruct", "llama",
+                  126, remote=True),
+        ModelSpec("gemma2-9b", "google/gemma-2-9b-it", "gemma", 42, remote=True),
+        ModelSpec("gptj-6b", "EleutherAI/gpt-j-6b", "gptj", 28, remote=True),
     ]
 }
 

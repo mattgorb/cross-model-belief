@@ -69,7 +69,9 @@ USE_MAP_FOR_FEATURES = True
 
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
-        "qwen38-27b": 27, "gemma4-31b": 31, "qwen3-32b": 32}
+        "qwen38-27b": 27, "gemma4-31b": 31, "qwen3-32b": 32,
+        "llama31-70b": 70, "llama31-70b-base": 70, "llama31-405b": 405,
+        "gemma2-9b": 9, "gptj-6b": 6}
 
 BASE_COLS = ["overseer", "target", "dataset", "n", "n_false",
              "auroc_a", "auroc_b", "gate_a_edge_a", "gate_a_edge_b",
