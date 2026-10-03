@@ -123,9 +123,18 @@ networks represent inputs alike, and we report it as context rather than as the
 verdict on transportability. A probe needs one direction to survive where CKA
 grades all of them, and the two come apart: we observe a pair at CKA $0.49$ whose
 transported probe loses $0.004$ AUROC. CKA does predict transfer loss moderately
-across our cells, which we report, but \citet{nielsen2026logit} identify the
-quantity that should predict it, and testing that in this setting is work we have
-not done.
+across our cells ($r=-0.51$ against the worse of the two directions), and we
+tested the quantity \citet{nielsen2026logit} identify in its place. Because the
+extraction caches each model's out-loud probability for every claim, a logit
+distance is computable over that two-outcome distribution --- and it predicts
+transfer loss hardly at all ($r=0.05$ pooled), though within each dataset the sign
+is the predicted one in four cases of five. We read this as a statement about the
+proxy rather than about their result: their distance is defined over the model's
+full conditional distribution and ours is a one-dimensional projection of it onto
+a single binary question, which is evidently too narrow to carry the quantity.
+Testing the theory properly requires full next-token distributions over a corpus,
+which we did not cache. Notably KL is equally uninformative here ($r=0.05$),
+which is what their account predicts.
 
 \paragraph{Cross-model disagreement as a signal.}
 The complement of what we study has been shown to work.

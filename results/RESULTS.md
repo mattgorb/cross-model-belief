@@ -349,3 +349,43 @@ The detector is the weaker half. It works where the blind spot is small and rare
 (4x lift on Geometry of Truth) and barely works where it is large and common
 (1.2x on TruthfulQA) — the opposite of where an operator would want it. The
 paper's claim should be the bound plus this asymmetry, not a detector.
+
+## G. Does logit distance predict probe transportability?
+
+\citet{nielsen2026logit} identify a logit-based distributional distance as the
+quantity that controls linear representational similarity, where KL closeness
+does not. Since the extraction cached each model's out-loud P(claim is true), a
+logit distance over that two-outcome distribution is computable for free
+(`scripts/logit_distance.py`, 208 cells).
+
+Correlation with transfer loss (negative = predicts better transfer):
+
+| predictor | a→b | b→a | worse direction |
+|---|---|---|---|
+| logit distance (mean abs) | −0.010 | 0.036 | 0.051 |
+| KL | −0.057 | 0.083 | 0.050 |
+| p_yes correlation | −0.451 | −0.278 | −0.487 |
+| **CKA** | **−0.574** | −0.151 | **−0.514** |
+| map R² (a→b) | −0.388 | 0.070 | −0.301 |
+
+Within each dataset, against the worse direction:
+
+| dataset | logit distance | KL | CKA | n |
+|---|---|---|---|---|
+| geometry_of_truth | +0.306 | +0.515 | −0.598 | 45 |
+| boolq | +0.301 | +0.110 | −0.522 | 45 |
+| truthfulqa | +0.185 | +0.310 | −0.525 | 45 |
+| imdb | +0.041 | +0.350 | −0.663 | 28 |
+| rte | −0.233 | −0.018 | −0.139 | 45 |
+
+**Reading.** Pooled, the proxy predicts nothing; CKA remains the better available
+predictor. Within datasets the sign is the predicted one (larger distance, more
+loss) in four of five, so the direction is present and the magnitude is weak — the
+pooled correlation vanishes because between-dataset variation swamps it.
+
+**This is not evidence against Nielsen et al.** Their distance is over the full
+conditional distribution; ours is a one-dimensional projection onto a single
+binary question, which is too narrow to carry it. A proper test needs full
+next-token distributions over a corpus, which we did not cache — that is the
+concrete thing to add to the extraction if this is worth pursuing. KL being
+equally uninformative here (0.05) is consistent with their account.
