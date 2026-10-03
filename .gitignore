@@ -36,3 +36,7 @@ infra/terraform.tfvars
 
 # os
 .DS_Store
+
+# figures are build artifacts of scripts/make_figures.py, but committed so the
+# paper builds for anyone without re-running the pipeline
+!paper/figures/*.pdf

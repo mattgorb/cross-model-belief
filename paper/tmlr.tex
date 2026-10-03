@@ -13,6 +13,7 @@
 %   sections/appendix_logit.tex  appendix: the logit-distance test
 %   sections/theory.tex     Section 2: the bound on what agreement can catch
 %   sections/method.tex     Section 3: probes, the map, the gates, the data
+%   sections/results.tex    Section 5, with figures/ built by scripts/make_figures.py
 % The bibliography is tmlr.bib, beside this file.
 % Everything else we write lives in sections/; the files beside this one are the
 % official TMLR template, vendored so the paper builds without fetching, and
@@ -28,6 +29,7 @@
 \usepackage{url}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
+\usepackage{graphicx}
 \usepackage{xcolor}
 
 \newtheorem{proposition}{Proposition}
@@ -69,10 +71,7 @@
 % false-agreement measurement over 49 pairs, the leave-one-dataset-out transfer
 % of the false-agreement direction, and the operating-point analysis.
 
-\section{Results}
-\label{sec:results}
-% TODO. Numbers from results/sweep_base_all.csv, results/sweep_loo_all.csv and
-% results/pair_table.csv; see results/RESULTS.md for the write-up they come from.
+\input{sections/results}
 
 \input{sections/related}
 
