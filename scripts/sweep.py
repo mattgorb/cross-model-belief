@@ -53,11 +53,16 @@ BUDGETS = (0.05, 0.10, 0.20)
 # is variance, not bias -- so take more reps and carry the spread, and treat any
 # margin smaller than the control's own sd as unmeasured.
 SHUFFLES = 4
-PROBE = "mass-mean"
 # Fixed ridge strength instead of a held-out search: across the runs that chose it
 # the selection landed on 0.01-1.0 and the transfer verdicts did not move, so the
 # 5x cost of searching per cell is not worth it at sweep scale.
 ALPHA = 0.1
+# Cap on the rows used to fit the false-agreement direction. The feature space is
+# 4 x d columns (20k for the largest models), so an uncapped pool of four datasets
+# builds a matrix that sklearn copies several times over -- enough to push a
+# laptop into swap, where the sweep makes no progress at all. Subsampled
+# stratified, so the rare class is not thinned.
+MAX_DIRECTION_ROWS = 4000
 
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
@@ -87,6 +92,26 @@ LOO_COLS = ["overseer", "target", "held_out", "n_pool_datasets",
 _cache: dict = {}
 
 
+def slim_load(path, pooling="mean"):
+    """Read only the final layer's two halves, not the whole file.
+
+    `cmb.cache.load` materialises every array in the npz -- three layers, two
+    contrast halves, two poolings -- so a sweep that keeps one layer then discards
+    eleven arrays pays ~1GB per model-dataset for 165MB of signal. On a machine
+    with little free RAM that is the difference between computing and swapping
+    (measured: 56s of CPU across 38 minutes of wall clock). npz access is lazy per
+    key, so naming the keys avoids reading the rest.
+    """
+    z = np.load(path, allow_pickle=True)
+    pre, npre = ("pos", "neg") if pooling == "mean" else ("posalt", "negalt")
+    L = max(int(k[len(pre) + 2:]) for k in z.files if k.startswith(pre + "_l"))
+    out = {"pos": z[f"{pre}_l{L}"], "neg": z[f"{npre}_l{L}"],
+           "labels": z["labels"], "p_yes": z["p_yes"],
+           "ids": [str(x) for x in z["item_ids"]]}
+    z.close()
+    return out
+
+
 def get(model: str, ds: str):
     """Final-layer mean-pooled activations for one (model, dataset), trimmed.
 
@@ -96,17 +121,13 @@ def get(model: str, ds: str):
     key = (model, ds)
     if key in _cache:
         return _cache[key]
-    a = load(cache_path(model, ds, None))
-    layer = resolve_layer("final", a.n_layers)
+    a = slim_load(cache_path(model, ds, None))
     items = {it.item_id: it for it in load_items(ds, None)}
-    ordered = [items[i] for i in a.item_ids]
-    train_items, _ = split_items(ordered, TEST_FRAC)
+    train_items, _ = split_items([items[i] for i in a["ids"]], TEST_FRAC)
     tr_ids = {t.item_id for t in train_items}
-    out = {"pos": a.pos[layer], "neg": a.neg[layer], "labels": a.labels,
-           "p_yes": a.p_yes, "ids": list(a.item_ids),
-           "tr": np.array([i in tr_ids for i in a.item_ids])}
-    _cache[key] = out
-    return out
+    a["tr"] = np.array([i in tr_ids for i in a["ids"]])
+    _cache[key] = a
+    return a
 
 
 def aligned(A, B, mask, map_ba):
@@ -117,7 +138,11 @@ def aligned(A, B, mask, map_ba):
     """
     pa, na = A["pos"][mask], A["neg"][mask]
     pb, nb = map_ba(B["pos"][mask]), map_ba(B["neg"][mask])
-    return np.concatenate([pa - na, (pa + na) / 2, pb - nb, (pb + nb) / 2], 1)
+    # float32: this is 4 x d columns (20k for the largest models) and the
+    # classifier copies it several times. In float64 that drove the machine into
+    # swap -- 56s of CPU across 38 minutes of wall clock. lbfgs keeps float32.
+    return np.concatenate([pa - na, (pa + na) / 2, pb - nb, (pb + nb) / 2],
+                          1).astype(np.float32)
 
 
 def calibrated_vote(probe, pos, neg, rate):
@@ -143,6 +168,10 @@ def calibrated_vote(probe, pos, neg, rate):
 
 def positive_rate(probe, pos, neg):
     return float((probe.belief(pos, neg) >= 0.5).mean())
+
+
+PROBE = "mass-mean"      # set from --probe in main(); module-level so the
+                         # worker processes inherit it after the fork
 
 
 def fit_probe(P, N, Y, seed=SEED):
@@ -253,6 +282,16 @@ def loo_row(ov, tg, held, pool):
         Xd.append(aligned(A, B, sel, map_ba))
         yd.append((A["labels"][te][both] == 0).astype(int))
     Xd, yd = np.concatenate(Xd), np.concatenate(yd)
+    if len(yd) > MAX_DIRECTION_ROWS:
+        rng = np.random.default_rng(SEED)
+        pos = np.where(yd == 1)[0]
+        neg = np.where(yd == 0)[0]
+        # keep every positive we can, then fill with negatives
+        k_pos = min(len(pos), MAX_DIRECTION_ROWS // 2)
+        k_neg = MAX_DIRECTION_ROWS - k_pos
+        keep = np.concatenate([rng.choice(pos, k_pos, replace=False),
+                               rng.choice(neg, min(k_neg, len(neg)), replace=False)])
+        Xd, yd = Xd[keep], yd[keep]
 
     A, B = get(ov, held), get(tg, held)
     gt = A["labels"]
@@ -326,7 +365,7 @@ def append(path, cols, row):
         w.writerow({c: row.get(c, "") for c in cols})
 
 
-def run(pairs, phase, tag=""):
+def run(pairs, phase, tag="", only_folds=()):
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     bpath = RESULTS_DIR / f"sweep_base{tag}.csv"
     lpath = RESULTS_DIR / f"sweep_loo{tag}.csv"
@@ -345,8 +384,10 @@ def run(pairs, phase, tag=""):
                     print(f"  FAIL base {ov}->{tg}/{ds}: {type(e).__name__}: {e}",
                           flush=True)
         if phase in ("loo", "all"):
-            for held in dss:
+            for held in (only_folds or dss):
                 if (ov, tg, held) in ldone:
+                    continue
+                if held not in dss:
                     continue
                 pool = [d for d in dss if d != held]
                 try:
@@ -365,21 +406,30 @@ def main() -> int:
     ap.add_argument("--pairs", default="", help="slice, e.g. 0:10")
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--probe", default="mass-mean",
+                    choices=["mass-mean", "lr", "ccs"])
+    ap.add_argument("--held-out", default="",
+                    help="only run these held-out folds (comma-separated). One "
+                         "fold costs a fifth of the full sweep and truthfulqa is "
+                         "the fold that decides anything.")
     args = ap.parse_args()
+    global PROBE
+    PROBE = args.probe
 
     pairs = all_pairs()
     if args.pairs:
         lo, hi = (int(x) if x else None for x in args.pairs.split(":"))
         pairs = pairs[lo:hi]
+    folds = tuple(d.strip() for d in args.held_out.split(",") if d.strip())
     print(f"{len(pairs)} ordered pairs, phase={args.phase}, "
-          f"workers={args.workers}", flush=True)
+          f"workers={args.workers}, folds={folds or 'all'}", flush=True)
 
     if args.workers <= 1:
-        run(pairs, args.phase, args.tag)
+        run(pairs, args.phase, args.tag, folds)
         return 0
     # Shard by stride so each worker sees a mix of cheap and expensive pairs.
     procs = [Process(target=run, args=(pairs[w::args.workers], args.phase,
-                                       f"{args.tag}_w{w}"))
+                                       f"{args.tag}_w{w}", folds))
              for w in range(args.workers)]
     for p in procs:
         p.start()
