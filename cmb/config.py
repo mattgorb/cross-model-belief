@@ -12,6 +12,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = Path(os.environ.get("CMB_CACHE", ROOT / "activations_cache"))
+
+# Where to look for an activation file, in order. Remote (NDIF) extractions are
+# kept in their own directory so the two provenances stay distinguishable on
+# disk, but every analysis treats them as one pool -- so reads fall back through
+# this list while writes always go to CACHE_DIR.
+CACHE_SEARCH_DIRS = [CACHE_DIR] + [
+    d for d in (ROOT / "activations_ndif",) if d != CACHE_DIR
+]
 RESULTS_DIR = Path(os.environ.get("CMB_RESULTS", ROOT / "results"))
 
 SEED = 0
@@ -110,6 +118,8 @@ MODELS = {
         # reaches 405B is what makes the scale question answerable. They are an
         # older generation than the local set, so a pair mixing the two carries a
         # generation confound that has to be named.
+        ModelSpec("llama31-8b-base", "meta-llama/Llama-3.1-8B", "llama", 32,
+                  base=True, gated=True, remote=True),
         ModelSpec("llama31-70b", "meta-llama/Llama-3.1-70B-Instruct", "llama", 80,
                   remote=True),
         ModelSpec("llama31-70b-base", "meta-llama/Llama-3.1-70B", "llama", 80,

@@ -1,34 +1,49 @@
-% Abstract. Results-forward: the setup gets one sentence, because the
-% introduction develops it properly and the two should not read alike.
+% Abstract. Results-forward and deliberately unlike the introduction: the setup
+% gets one sentence, the identity is stated rather than motivated, and the
+% diversity result leads. No transport or linear map -- those are Paper 2.
 % TMLR wants a single paragraph; the % breaks below render as one block.
 \begin{abstract}
-Oversight by one language model of another assumes the two fail differently, and
-a checker that reads outputs cannot test that assumption on anything the model
-leaves unsaid. We therefore ask it of internal state: we fit a linear probe on
-each of two models, read both on the same claim, and measure \emph{false
-agreement}, where both probes report a claim as true and the claim is false. This
-is the case disagreement-based oversight cannot see.
+Oversight of one language model by another assumes the two fail differently, and
+a checker that reads only outputs cannot test that assumption on anything the
+model leaves unsaid. We ask it of internal state instead: we fit a linear belief
+probe on each of two models, read both on the same claim, and measure
+\emph{false agreement}, where both probes call a false claim true. This is the
+case disagreement-based oversight cannot see.
 %
-The rate is not free to vary. On the false claims it decomposes exactly into a
-term set by the two probes' accuracies and a term set by the correlation between
-their mistakes, and it can never exceed the error rate of the more accurate probe
-alone. Accuracy enters only the first term, so two accurate checkers that fail
-together are worse than two mediocre ones that fail apart.
+On the false claims the rate decomposes exactly as
+$\mathrm{FA} = p_1 p_2 + \rho\sqrt{p_1(1-p_1)}\sqrt{p_2(1-p_2)}$, into a term
+set by the two probes' accuracies and a term set by the correlation between
+their mistakes, and Fr\'echet bounds confine it to
+$\max(0,\,p_1+p_2-1) \le \mathrm{FA} \le \min(p_1,p_2)$. False agreement can
+therefore never fall below the better probe's error rate, and once the two
+probes are jointly inaccurate enough, overlap is forced even at zero
+correlation.
 %
-Measuring this across $49$ model pairs from four families and $1.7$B to $32$B
-parameters, on five datasets, we find false agreement on $4$--$23\%$ of false
-claims, with positively correlated probe errors in nearly every pair. It does
-\emph{not} fall when the two models come from different families: such pairs do
-have less correlated mistakes, but they carry higher individual error rates, and
-the two terms cancel. Transporting a probe between models through a linear map
-costs almost nothing on some datasets and fails outright on others, so we report
-that cost rather than assume it. Finally, the blind spot is largely invisible in
-the activations that produced it: a direction fitted on the false agreements of
-four datasets transfers to a fifth, but adds only five percentage points of
-caught errors beyond what disagreement already catches on the dataset where false
-agreement is most common, working well only where it is already rare.
+Measuring this across $571$ model-pair--dataset cells --- $16$ models, five
+families, $1.7$B to $405$B parameters, five datasets, two probe families --- we
+find false agreement on $2$--$26\%$ of false claims, with positively correlated
+probe errors in $84$--$98\%$ of cells depending on the probe. Choosing a checker
+from a different family does not reduce it: $12.5\%$ within family against
+$13.2\%$ across for a logistic probe and $11.7\%$ against $11.2\%$ for a
+mass-mean probe, neither distinguishable from zero ($|t| = 0.59$ in both), with
+the sign of the difference reversing between probes.
 %
-Agreement between two models' internal beliefs therefore accounts for roughly
-half of the overseen model's errors in our setting. The limit lies in shared
-error, and is not removed by choosing a checker from a different family.
+Cross-family pairs do show lower error correlation in aggregate
+($\rho = 0.42 \to 0.34$, $t = -3.7$), but the effect disappears once model size
+is matched ($0.389$ against $0.406$ at a size ratio below $1.5$), so the
+decorrelation usually credited to architectural diversity is a size effect
+wearing a family label. The identity explains why even the aggregate reduction
+cannot help: $\rho$ enters false agreement damped by $p(1-p)\approx 0.19$,
+while the accuracy cost of a diverse pairing enters the undamped term $p_1p_2$.
+%
+Finally, the blind spot is only partly legible in the activations that produce
+it. A direction fitted on the false agreements of four datasets transfers to a
+fifth, but works on factual recall (AUROC $0.92$) and not on entailment or
+open-ended question answering ($0.54$--$0.56$); it catches $42\%$ of false
+claims at a $10\%$ review budget, of which the probes' own disagreement already
+supplies about half.
+%
+The limit on this kind of oversight is shared error. It is not removed by
+choosing a checker from a different family, and it tightens as probes become
+more accurate, because accuracy enters only the term that diversity cannot move.
 \end{abstract}

@@ -56,11 +56,48 @@ class LinearMap:
 ALPHA_GRID = (1e-3, 1e-2, 1e-1, 1.0, 10.0)
 
 
+def _gram(A: np.ndarray) -> np.ndarray:
+    """`A A^T`, the n-by-n Gram matrix the dual ridge solve needs."""
+    return A @ A.T
+
+
+def _dual_weights(G: np.ndarray, B: np.ndarray, alpha: float,
+                  scale: float) -> np.ndarray:
+    """`(A A^T + lambda I)^-1 B`, the dual coefficients. `W = A^T @ this`."""
+    n = G.shape[0]
+    return np.linalg.solve(G + alpha * scale * np.eye(n), B)
+
+
+def _penalty_scale(A: np.ndarray, G: np.ndarray | None = None) -> float:
+    """Penalty normalizer: mean squared singular value, as the primal form used.
+
+    `trace(A^T A) == trace(A A^T)`, so this is identical whichever Gram matrix
+    is to hand and the alpha grid keeps its original meaning.
+    """
+    t = np.trace(G) if G is not None else (A * A).sum()
+    return float(t) / A.shape[1]
+
+
 def _solve(A: np.ndarray, B: np.ndarray, alpha: float) -> np.ndarray:
     """Ridge solve with the penalty scaled to the data, so one alpha grid works
-    across models and layers whose activation norms differ by orders."""
-    d = A.shape[1]
-    scale = np.trace(A.T @ A) / d
+    across models and layers whose activation norms differ by orders.
+
+    Solved in whichever of the two equivalent forms is smaller. The primal normal
+    equations invert a d-by-d matrix, which at d=16384 (the 405B) is a 2.4e12-flop
+    operation repeated once per alpha per direction -- around five minutes per
+    cell, and the reason a full sweep was projected at six hours. The identity
+
+        (A^T A + lambda I)^-1 A^T  ==  A^T (A A^T + lambda I)^-1
+
+    moves that to an n-by-n inverse, and n here is the item count, so for any
+    model wider than its dataset the dual form is the cheaper side. Same answer
+    to floating point, so this is a speed choice and nothing else.
+    """
+    n, d = A.shape
+    if n < d:
+        G = _gram(A)
+        return A.T @ _dual_weights(G, B, alpha, _penalty_scale(A, G))
+    scale = _penalty_scale(A)
     return np.linalg.solve(A.T @ A + alpha * scale * np.eye(d), A.T @ B)
 
 
@@ -84,12 +121,29 @@ def fit_map(Xa: np.ndarray, Xb: np.ndarray,
         tr, va = idx[:cut], idx[cut:]
         best, best_r2 = ALPHA_GRID[len(ALPHA_GRID) // 2], -np.inf
         if len(va) >= 5:
-            for cand in ALPHA_GRID:
-                W = _solve(A[tr], B[tr], cand)
-                pred = A[va] @ W
-                r2 = 1 - ((B[va] - pred) ** 2).sum() / ((B[va] - B[va].mean(0)) ** 2).sum()
-                if r2 > best_r2:
-                    best, best_r2 = cand, r2
+            Atr, Btr, Ava = A[tr], B[tr], A[va]
+            denom = ((B[va] - B[va].mean(0)) ** 2).sum()
+            dual = Atr.shape[0] < Atr.shape[1]
+            if dual:
+                # One Gram matrix and one cross-product serve every candidate:
+                # only the ridge term changes between them, so the expensive
+                # products are not repeated five times. Predictions come from
+                # A_va A_tr^T @ dual_weights, which never forms W at all -- and W
+                # for the 405B is a 16384x16384 array, a gigabyte in float32.
+                G = _gram(Atr)
+                scale = _penalty_scale(Atr, G)
+                K = Ava @ Atr.T
+                for cand in ALPHA_GRID:
+                    pred = K @ _dual_weights(G, Btr, cand, scale)
+                    r2 = 1 - ((B[va] - pred) ** 2).sum() / denom
+                    if r2 > best_r2:
+                        best, best_r2 = cand, r2
+            else:
+                for cand in ALPHA_GRID:
+                    pred = Ava @ _solve(Atr, Btr, cand)
+                    r2 = 1 - ((B[va] - pred) ** 2).sum() / denom
+                    if r2 > best_r2:
+                        best, best_r2 = cand, r2
         alpha = best
     W = _solve(A, B, alpha)
     return LinearMap(W=W, b=np.zeros(Xb.shape[1]), mu_a=mu_a, mu_b=mu_b,

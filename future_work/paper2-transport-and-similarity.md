@@ -82,6 +82,48 @@ alignment), map $R^2$ and CKA per cell, and the logit-distance test of
   drive alignment success; `cmb/tokalign.py` computes the compatibility score.
   Whether either adds anything over CKA is untested.
 
+## Experiment plan
+
+Paper 1 does not use the linear map at all. Its probes are fitted independently
+per model and read on the same claim, and its detector concatenates the two
+models' features in their own coordinates. Everything about transport therefore
+belongs here, including one experiment that was originally run for Paper 1.
+
+### Owned by this paper
+
+1. **Detection through the map (`results/sweep_loo_lr16.csv`).** The
+   leave-one-dataset-out detector with model B's activations pushed into A's
+   space by the ridge map, LR probe, 16 models, 611 cells. Its Paper 1
+   counterpart is `sweep_loo_nomap16.csv`, identical except that the halves stay
+   in their own coordinates, so the pair is a clean A/B on the map alone.
+
+   This is the experiment that moved. It was Paper 1's detection result until the
+   map came out of Paper 1, and it carries a confound that makes it a poor fit
+   there but an interesting object here: detection margin tracks map quality
+   (0.039 with worse maps against 0.093 with better on TruthfulQA). Under Paper
+   1's framing that is contamination — the detector partly measuring how well the
+   map fitted. Under this paper's framing it is the finding: transportability is
+   doing measurable work, and the amount of work is proportional to how well the
+   representations align.
+
+2. **The map-vs-no-map difference itself.** With both tables in hand the
+   quantity of interest is `margin(map) - margin(no map)` per cell, regressed on
+   CKA and transfer loss. If the map only helps where it transports well, that is
+   the strongest version of the central claim: representational overlap is what
+   makes a probe portable, measured on a downstream task rather than by a
+   similarity index.
+
+3. **The transport measurements already listed above** — transfer loss by
+   dataset and direction, the strong-to-weak asymmetry, map R^2 and CKA per cell.
+
+### Still to run
+
+- Full next-token distributions for the \citet{nielsen2026logit} test, which the
+  one-dimensional proxy in Paper 1's appendix cannot settle.
+- Tokenizer compatibility (`cmb/tokalign.py`) and size gap as predictors
+  alongside CKA.
+- `N_eff` estimated from CKA-predicted rho-bar for a candidate pool.
+
 ## Paper 3 (sketch, unchanged)
 
 Swarms, where ρ is not a fixed property of a pair: agents reading one another's

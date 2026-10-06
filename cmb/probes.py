@@ -73,10 +73,21 @@ class CCSProbe(nn.Module):
     # solution, not a probe: it has learned the half-identity, not the claim.
     MIN_BELIEF_SPREAD = 0.02
 
-    def fit(self, Xp: np.ndarray, Xn: np.ndarray, epochs: int = 1000,
+    def fit(self, Xp: np.ndarray, Xn: np.ndarray,
+            labels: np.ndarray | None = None, *, epochs: int = 1000,
             lr: float = 1e-3, ntries: int = 10, weight_decay: float = 0.0,
             seed: int = SEED) -> float:
         """Fit with restarts (CCS is notoriously seed-sensitive).
+
+        `labels` is accepted and ignored. CCS is unsupervised -- the consistency
+        objective needs no labels -- but every caller fits probes through one
+        interface, `fit(Xp, Xn, labels)`. Leaving labels out of this signature
+        made the third positional argument `epochs`, so a caller handing over a
+        label array silently set the epoch count to an array and the fit died
+        with "only integer scalar arrays can be converted to a scalar index".
+        Taking the argument and discarding it makes the interface uniform, so a
+        caller cannot get this wrong. Use `resolve_sign` for the one bit of label
+        information CCS does need.
 
         Restarts are ranked by loss *among non-degenerate solutions only*, which
         matters because the two are ordered the wrong way round. A probe that

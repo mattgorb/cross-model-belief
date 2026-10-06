@@ -66,11 +66,14 @@ MAX_DIRECTION_ROWS = 4000
 # None -> concatenate the two models' features instead of mapping one into the
 # other's space. See `aligned`.
 USE_MAP_FOR_FEATURES = True
+# False -> only overseer <= target (the default). True -> every ordered pair,
+# so a large model overseeing a small one is included too.
+ALL_DIRECTIONS = False
 
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
         "qwen38-27b": 27, "gemma4-31b": 31, "qwen3-32b": 32,
-        "llama31-70b": 70, "llama31-70b-base": 70, "llama31-405b": 405,
+        "llama31-8b-base": 8, "llama31-70b": 70, "llama31-70b-base": 70, "llama31-405b": 405,
         "gemma2-9b": 9, "gptj-6b": 6}
 
 BASE_COLS = ["overseer", "target", "dataset", "n", "n_false",
@@ -257,6 +260,33 @@ def base_row(ov, tg, ds):
 
 # --------------------------------------------------------------------- phase B
 
+_probe_cache: dict = {}
+
+
+def _pooled_probe(model: str, pool):
+    """Probe fitted on `model` over the pooled datasets, plus its positive rate.
+
+    Cached because a probe depends only on (model, pool) -- the train mask comes
+    from a seeded split over item ids, and the ids are identical across models,
+    so the partner in the pair does not enter. Without the cache a 16-model sweep
+    refits the same probe once per pair it appears in: 1222 fits where 80 are
+    distinct.
+    """
+    key = (model, tuple(pool))
+    if key in _probe_cache:
+        return _probe_cache[key]
+    P, N, Y = [], [], []
+    for ds in pool:
+        D = get(model, ds)
+        tr = D["tr"]
+        P.append(D["pos"][tr]); N.append(D["neg"][tr]); Y.append(D["labels"][tr])
+    P, N, Y = np.concatenate(P), np.concatenate(N), np.concatenate(Y)
+    probe = fit_probe(P, N, Y)
+    out = (probe, positive_rate(probe, P, N))
+    _probe_cache[key] = out
+    return out
+
+
 def loo_row(ov, tg, held, pool):
     P, N, Y, Xa, Xb = [], [], [], [], []
     for ds in pool:
@@ -264,27 +294,18 @@ def loo_row(ov, tg, held, pool):
         tr = A["tr"]
         Xa.append(np.concatenate([A["pos"][tr], A["neg"][tr]]))
         Xb.append(np.concatenate([B["pos"][tr], B["neg"][tr]]))
-    map_ab, map_ba = align.fit_map_both_ways(np.concatenate(Xa),
+    # Only B -> A is ever read here, and only to build the detector's features.
+    # `LOO_COLS` carries no map columns, so under --no-map-features the map is
+    # pure waste -- and it is the most expensive thing in the cell, a ridge solve
+    # on four datasets pooled. Fitting it conditionally is what makes the no-map
+    # runs cheap rather than merely different.
+    map_ba = None
+    if USE_MAP_FOR_FEATURES:
+        _, map_ba = align.fit_map_both_ways(np.concatenate(Xa),
                                             np.concatenate(Xb), alpha=ALPHA)
-    probes_ = []
-    for model in (ov, tg):
-        P, N, Y = [], [], []
-        for ds in pool:
-            D = get(model, ds)
-            tr = get(ov, ds)["tr"]
-            P.append(D["pos"][tr]); N.append(D["neg"][tr]); Y.append(D["labels"][tr])
-        probes_.append(fit_probe(np.concatenate(P), np.concatenate(N),
-                                 np.concatenate(Y)))
-    pa, pb = probes_
 
-    # the probes' own positive rate where they were fitted, for calibration below
-    rates = []
-    for probe, model in ((pa, ov), (pb, tg)):
-        P, N = [], []
-        for ds in pool:
-            D, tr = get(model, ds), get(ov, ds)["tr"]
-            P.append(D["pos"][tr]); N.append(D["neg"][tr])
-        rates.append(positive_rate(probe, np.concatenate(P), np.concatenate(N)))
+    (pa, rate_a), (pb, rate_b) = (_pooled_probe(ov, pool), _pooled_probe(tg, pool))
+    rates = [rate_a, rate_b]
 
     Xd, yd = [], []
     for ds in pool:
@@ -351,13 +372,31 @@ def loo_row(ov, tg, held, pool):
 # ------------------------------------------------------------------- the sweep
 
 def all_pairs():
-    have = {d for d in os.listdir(CACHE)
-            if (CACHE / d).is_dir() and d != "manifests"}
-    dsets = {m: sorted(f.replace("_nall.npz", "") for f in os.listdir(CACHE / m))
-             for m in have}
+    # Models live across the cache search path -- locally extracted ones in
+    # activations_cache, NDIF ones in activations_ndif -- and the sweep treats
+    # them as one pool, so the listing unions every directory on the path.
+    from cmb.config import CACHE_SEARCH_DIRS
+
+    dsets: dict[str, list[str]] = {}
+    for root in CACHE_SEARCH_DIRS:
+        if not root.exists():
+            continue
+        for d in os.listdir(root):
+            if not (root / d).is_dir() or d == "manifests":
+                continue
+            ds = sorted(f.replace("_nall.npz", "") for f in os.listdir(root / d)
+                        if f.endswith("_nall.npz"))
+            if ds:
+                dsets.setdefault(d, ds)
+    have = set(dsets)
     out = []
     for a, b in itertools.permutations(sorted(have), 2):
-        if SIZE.get(a, 99) > SIZE.get(b, 0):
+        # The standing filter keeps the overseer no larger than the target, which
+        # is the scalable-oversight regime: a weaker model checking a stronger
+        # one. That filter also means the same/cross-family contrast is drawn
+        # from a slice rather than the whole space, so ALL_DIRECTIONS lifts it
+        # and lets the null be retested with large models overseeing small ones.
+        if not ALL_DIRECTIONS and SIZE.get(a, 99) > SIZE.get(b, 0):
             continue
         shared = sorted(set(dsets[a]) & set(dsets[b]))
         if len(shared) >= 3:
@@ -417,6 +456,7 @@ def run(pairs, phase, tag="", only_folds=()):
 
 
 def main() -> int:
+    global ALL_DIRECTIONS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--phase", default="all", choices=["base", "loo", "all"])
     ap.add_argument("--pairs", default="", help="slice, e.g. 0:10")
@@ -424,6 +464,9 @@ def main() -> int:
     ap.add_argument("--tag", default="")
     ap.add_argument("--probe", default="mass-mean",
                     choices=["mass-mean", "lr", "ccs"])
+    ap.add_argument("--all-directions", action="store_true",
+                    help="also pair a large overseer with a small target, "
+                         "lifting the scalable-oversight size filter")
     ap.add_argument("--no-map-features", action="store_true",
                     help="concatenate the two models' features instead of mapping "
                          "one into the other's space (see `aligned`)")
@@ -432,6 +475,8 @@ def main() -> int:
                          "fold costs a fifth of the full sweep and truthfulqa is "
                          "the fold that decides anything.")
     args = ap.parse_args()
+    if args.all_directions:
+        ALL_DIRECTIONS = True
     global PROBE, USE_MAP_FOR_FEATURES
     PROBE = args.probe
     USE_MAP_FOR_FEATURES = not args.no_map_features

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -109,6 +110,10 @@ def main() -> int:
                          "in the environment.")
     ap.add_argument("--batch-size", type=int, default=8,
                     help="items per remote trace (ndif backend only)")
+    ap.add_argument("--logit-batch-size", type=int, default=0,
+                    help="rows per verdict (logits) trace; defaults to a "
+                         "per-family cap, since the lm head of a large-vocab "
+                         "model is what runs out of memory, not the decoder")
     ap.add_argument("--synthetic", action="store_true")
     ap.add_argument("--refresh", action="store_true",
                     help="re-extract even if a cache file already exists")
@@ -150,7 +155,9 @@ def main() -> int:
                 if backend is None:
                     if args.backend == "ndif":
                         from cmb.ndif import NDIFModel
-                        backend = NDIFModel(model, batch_size=args.batch_size)
+                        backend = NDIFModel(
+                            model, batch_size=args.batch_size,
+                            logit_batch_size=args.logit_batch_size or None)
                     else:
                         backend = load_backend(model, synthetic=args.synthetic)
                 acts = get_activations(model, ds, args.n, synthetic=args.synthetic,
@@ -158,6 +165,15 @@ def main() -> int:
                                        backend=backend)
             except Exception as e:
                 print(f"  FAILED: {type(e).__name__}: {e}")
+                # A remote failure arrives as a short wrapper around a traceback
+                # that happened on the NDIF side; printing only str(e) truncates
+                # exactly the part that says what went wrong, so dump the chain.
+                if args.backend == "ndif":
+                    traceback.print_exc()
+                    cause = e.__cause__ or e.__context__
+                    while cause is not None:
+                        print(f"  caused by {type(cause).__name__}: {cause}")
+                        cause = cause.__cause__ or cause.__context__
                 failures.append((model, ds, f"{type(e).__name__}: {e}"))
                 continue
             dt = time.time() - t0

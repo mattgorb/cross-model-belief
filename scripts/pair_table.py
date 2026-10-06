@@ -57,13 +57,13 @@ ALPHA = 0.1
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
         "qwen38-27b": 27, "gemma4-31b": 31, "qwen3-32b": 32,
-        "llama31-70b": 70, "llama31-70b-base": 70, "llama31-405b": 405,
+        "llama31-8b-base": 8, "llama31-70b": 70, "llama31-70b-base": 70, "llama31-405b": 405,
         "gemma2-9b": 9, "gptj-6b": 6}
 FAMILY = {"qwen3-1.7b": "qwen", "qwen3-8b": "qwen", "qwen3-8b-base": "qwen",
           "qwen3-32b": "qwen", "qwen38-27b": "qwen", "gemma4-12b": "gemma",
           "gemma4-12b-base": "gemma", "gemma4-31b": "gemma",
           "llama-8b": "llama", "olmo3-7b": "olmo",
-          "llama31-70b": "llama", "llama31-70b-base": "llama",
+          "llama31-8b-base": "llama", "llama31-70b": "llama", "llama31-70b-base": "llama",
           "llama31-405b": "llama", "gemma2-9b": "gemma", "gptj-6b": "gptj"}
 
 COLS = ["model_a", "model_b", "dataset", "kind", "size_a", "size_b",
@@ -174,9 +174,22 @@ def main() -> int:
     ap.add_argument("--pairs", default="")
     args = ap.parse_args()
 
-    have = {d for d in os.listdir(CACHE) if (CACHE / d).is_dir() and d != "manifests"}
-    dsets = {m: sorted(f.replace("_nall.npz", "") for f in os.listdir(CACHE / m))
-             for m in have}
+    # Locally and remotely extracted activations sit in separate directories but
+    # form one pool for the analysis, so union every directory on the search path.
+    from cmb.config import CACHE_SEARCH_DIRS
+
+    dsets: dict[str, list[str]] = {}
+    for root in CACHE_SEARCH_DIRS:
+        if not root.exists():
+            continue
+        for d in sorted(os.listdir(root)):
+            if not (root / d).is_dir() or d == "manifests":
+                continue
+            ds = sorted(f.replace("_nall.npz", "") for f in os.listdir(root / d)
+                        if f.endswith("_nall.npz"))
+            if ds:
+                dsets.setdefault(d, ds)
+    have = set(dsets)
     pairs = [(a, b, sorted(set(dsets[a]) & set(dsets[b])))
              for a, b in itertools.combinations(sorted(have), 2)]
     pairs = [p for p in pairs if len(p[2]) >= 3]

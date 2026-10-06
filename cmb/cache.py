@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import CACHE_DIR
+from .config import CACHE_DIR, CACHE_SEARCH_DIRS
 
 
 @dataclass
@@ -91,7 +91,14 @@ def cache_path(model: str, dataset: str, n: int | None) -> Path:
     one directory deeper and break every listing; flatten it instead.
     """
     safe = model.replace("/", "--")
-    return CACHE_DIR / safe / f"{dataset}_n{n if n is not None else 'all'}.npz"
+    name = f"{dataset}_n{n if n is not None else 'all'}.npz"
+    # Reads resolve across the search path so the local and remote caches act as
+    # one pool; a file that exists nowhere resolves to CACHE_DIR, which is where
+    # a writer should put it.
+    for d in CACHE_SEARCH_DIRS:
+        if (d / safe / name).exists():
+            return d / safe / name
+    return CACHE_DIR / safe / name
 
 
 def save(acts: ActivationSet, path: Path) -> None:
