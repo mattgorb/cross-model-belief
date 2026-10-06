@@ -38,10 +38,13 @@ while the accuracy cost of a diverse pairing enters the undamped term $p_1p_2$.
 %
 Finally, the blind spot is only partly legible in the activations that produce
 it. A direction fitted on the false agreements of four datasets transfers to a
-fifth, but works on factual recall (AUROC $0.92$) and not on entailment or
-open-ended question answering ($0.54$--$0.56$); it catches $42\%$ of false
-claims at a $10\%$ review budget, of which the probes' own disagreement already
-supplies about half.
+fifth, but only on some: AUROC $0.86$ on curated factual statements and $0.72$ on
+entailment, against $0.57$--$0.63$ on open-ended question answering, reading
+comprehension and sentiment. It catches $41\%$ of false claims at a $10\%$
+review budget, of which the probes' own disagreement already supplies about half.
+The ordering of probes reverses here: the logistic probe reads belief more
+accurately but detects shared error less well than a mass-mean probe does,
+falling to chance on one dataset.
 %
 The limit on this kind of oversight is shared error. It is not removed by
 choosing a checker from a different family, and it tightens as probes become
