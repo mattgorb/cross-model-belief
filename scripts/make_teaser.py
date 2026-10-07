@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from scipy.optimize import brentq
 
 from figstyle import BLUE, GRAY, INK, INK2, ORANGE, PROBES, SURFACE, load_base, save
@@ -72,35 +72,56 @@ def rates(d):
 
 
 def venn(ax, p1, p2, fa, title, subtitle, lim):
+    """One panel: the four outcomes on false claims, drawn to scale.
+
+    The box is every false claim. Each circle is the set one probe calls true,
+    so its area is that probe's error rate; the lens is false agreement. What is
+    left -- the box outside both circles -- is the case both probes get right,
+    which is most of the area and is what makes the lens readable as a fraction
+    of the whole rather than of the errors alone.
+
+    Areas are exact: the box is a unit square, circle radii are sqrt(p/pi), and
+    the centre distance is solved so the lens area equals the measured rate.
+    """
     r1, r2 = np.sqrt(p1 / np.pi), np.sqrt(p2 / np.pi)
     d = centre_distance(r1, r2, fa)
-    c1, c2 = (-d / 2, 0.0), (d / 2, 0.0)
+    # centre the pair in the unit box
+    span = d + r1 + r2
+    cx = 0.5 - span / 2 + r1
+    c1, c2 = (cx, 0.5), (cx + d, 0.5)
 
-    for (cx, cy), r, col in ((c1, r1, BLUE), (c2, r2, ORANGE)):
-        ax.add_patch(Circle((cx, cy), r, facecolor=col, alpha=0.30,
-                            edgecolor=col, linewidth=1.6, zorder=2))
-    # the lens, drawn by clipping one circle against the other
-    lens = Circle(c1, r1, facecolor=INK2, alpha=0.55, edgecolor="none", zorder=3)
+    ax.add_patch(Rectangle((0, 0), 1, 1, facecolor="white",
+                           edgecolor=GRAY, linewidth=1.0, zorder=1))
+    for (x, y), r, col in ((c1, r1, BLUE), (c2, r2, ORANGE)):
+        ax.add_patch(Circle((x, y), r, facecolor=col, alpha=0.30,
+                            edgecolor=col, linewidth=1.5, zorder=2))
+    lens = Circle(c1, r1, facecolor=INK2, alpha=0.60, edgecolor="none", zorder=3)
     ax.add_patch(lens)
     lens.set_clip_path(Circle(c2, r2, transform=ax.transData))
 
-    ax.annotate(f"both wrong\n{fa:.1%}", (0, 0), ha="center", va="center",
-                fontsize=8.5, color=SURFACE, zorder=4, fontweight="bold")
-    # placed on the far side of each crescent, above the midline, so neither
-    # label can land on the lens however the circles are sized
-    ax.annotate("weaker probe\nalone wrong", (c1[0] - r1 * 0.52, r1 * 0.42),
-                ha="center", va="center", fontsize=7.5, color=INK2, zorder=4)
-    ax.annotate("stronger probe\nalone wrong", (c2[0] + r2 * 0.55, r2 * 0.46),
-                ha="center", va="center", fontsize=7.5, color=INK2, zorder=4)
+    both_right = 1.0 - p1 - p2 + fa
+    # each label at the middle of the region it names, not at the circle centre:
+    # the lens is wide enough that a label placed at a circle's centre lands on
+    # top of the lens label
+    left, right = c2[0] - r2, c1[0] + r1          # the lens spans these
+    ax.annotate(f"both wrong\n{fa:.0%}", ((left + right) / 2, 0.5),
+                ha="center", va="center", fontsize=8.5, color="white",
+                fontweight="bold", zorder=5)
+    ax.annotate(f"only the weaker\nprobe wrong\n{p1 - fa:.0%}",
+                (((c1[0] - r1) + left) / 2, 0.5), ha="center", va="center",
+                fontsize=7.5, color=INK, zorder=5)
+    ax.annotate(f"only the stronger\nprobe wrong\n{p2 - fa:.0%}",
+                ((right + (c2[0] + r2)) / 2 + 0.10, 0.5 + r2 * 1.05),
+                ha="center", va="center", fontsize=7.5, color=INK, zorder=5)
+    ax.annotate(f"both right\n{both_right:.0%}", (0.5, 0.075), ha="center",
+                va="center", fontsize=8, color=INK2, zorder=5)
+    ax.annotate("every false claim", (0.012, 0.975), ha="left", va="top",
+                fontsize=7, color=GRAY, zorder=5)
 
-    # one scale for both panels: with independent limits the circles would be
-    # drawn the same size whatever the error rates, and the comparison the
-    # figure exists to make would be invisible
-    ax.set_xlim(-lim, lim); ax.set_ylim(-lim * 0.74, lim * 0.74)
-    ax.set_aspect("equal"); ax.axis("off")
-    ax.set_facecolor(SURFACE)
-    ax.set_title(title, fontsize=10.5, color=INK, loc="center", pad=4)
-    ax.annotate(subtitle, (0.5, -0.02), xycoords="axes fraction", ha="center",
+    ax.set_xlim(-0.06, 1.06); ax.set_ylim(-0.06, 1.06)
+    ax.set_aspect("equal"); ax.axis("off"); ax.set_facecolor(SURFACE)
+    ax.set_title(title, fontsize=10.5, color=INK, pad=6)
+    ax.annotate(subtitle, (0.5, -0.055), xycoords="axes fraction", ha="center",
                 fontsize=8, color=INK2)
 
 
@@ -108,13 +129,9 @@ def main() -> int:
     df = load_base(PROBE_KEY)
     name = dict((k, n) for n, _, k in PROBES)[PROBE_KEY]
     groups = {f: df[df.family == f] for f in ("same", "cross")}
-    lim = 0.0
-    for d in groups.values():
-        p1, p2, fa = rates(d)
-        r1, r2 = np.sqrt(p1 / np.pi), np.sqrt(p2 / np.pi)
-        lim = max(lim, max(r1, r2) + centre_distance(r1, r2, fa) / 2 + 0.05)
-
-    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.5))
+    # the unit box is the common scale, so no shared limit has to be computed
+    lim = 1.0
+    fig, axes = plt.subplots(1, 2, figsize=(9.8, 4.0))
     for ax, fam, title in ((axes[0], "same", "Judge from the same model family"),
                            (axes[1], "cross", "Judge from a different family")):
         d = groups[fam]
@@ -122,9 +139,9 @@ def main() -> int:
     fig.suptitle("Only disagreement is visible. The overlap is not.",
                  fontsize=12, color=INK, y=1.02)
     fig.text(0.5, -0.07,
-             "Circle areas are the share of false claims each probe calls true; "
-             "the overlap is false agreement, which no disagreement flags. "
-             f"Areas to scale across both panels, {name} probes.",
+             "The box is every false claim; circle areas are the share each probe "
+             "calls true, and the overlap is false agreement, which no "
+             f"disagreement flags. All areas to scale, {name} probes.",
              ha="center", fontsize=8, color=INK2)
     fig.subplots_adjust(wspace=0.08)
     print("writing teaser:")
