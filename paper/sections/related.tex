@@ -60,15 +60,3 @@ that the common-mode component of evaluator error is not identifiable from the
 evaluators' scores alone. We test an internal-state counterpart by asking whether false
 agreement leaves a learnable signature in the models' activations, and whether
 that signature transfers to an unseen data distribution.
-
-\paragraph{What this paper adds.}
-First, we define and measure false agreement between two models' internal
-readouts rather than between their outputs. Second, we use an exact
-decomposition and its bounds to distinguish the effects of probe accuracy from
-error correlation, then measure both across model families, scales, datasets,
-and probe estimators. Third, we test two proposed remedies: selecting a judge
-from another model family and learning a detector for the residual blind spot.
-The first does not reliably reduce false agreement, and the second reveals a
-strong in-domain but largely domain-specific signature. Together, these results
-locate the limit of cross-model agreement in shared error and make that limit a
-measurable object for model-judge selection.
