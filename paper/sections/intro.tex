@@ -1,21 +1,22 @@
-% Section 1 --- Introduction.
+% Section 1: Introduction.
 \section{Introduction}
 \label{sec:intro}
 
-One language model checking another model’s output is a default instrument of AI
-oversight. Judges grade benchmarks, filter pretraining corpora, supply reward
-signals, and watch deployed behaviour. The appeal is obvious: models are cheap,
-fast, and available in quantity, unlike human annotators
+One language model checking another model's output is now a default instrument
+of AI oversight. LLM judges grade benchmarks, filter pretraining corpora, supply
+reward signals, and watch deployed behaviour. The appeal is obvious: models are
+cheap, fast, and available in quantity, while human annotators are not
 \citep{zheng2023judge}. Other oversight schemes, including debate
 \citep{irving2018debate}, sandwiching \citep{bowman2022measuring}, and
 weak-to-strong training \citep{burns2023weak}, also rely on models checking or
-supervising other models. All depend on the checker catching errors when the
-model being checked is wrong.
+supervising other models. All depend on the check remaining informative when
+the model being checked is wrong.
 
 Every such approach rests on an assumption that is almost never tested: the
-checker and the model being checked must fail differently. However, output-based
-checking has two potential failure modes: the checker cannot assess what the
-model does not express, and it cannot catch errors shared by both models.
+checker and the model being checked must fail differently. Output-based
+checking, however, has two potential failure modes. The checker cannot assess
+what the model does not express in its generated response, and it cannot catch
+errors shared by both models.
 
 The first blindness has a known answer. Linear probes read a model's internal
 state rather than its output, recovering a direction along which true and false
@@ -39,85 +40,62 @@ internal state would see the disagreement an output-level judge misses.
 We fit a probe on each of two models, read both on the same claim, and ask how
 often they are both wrong in the same direction: both read a claim as true when
 the claim is false. We call this \emph{false agreement}. It is the case
-disagreement-based oversight cannot see --- the two readouts match, nothing is
+disagreement-based oversight cannot see. The two readouts match, nothing is
 flagged, and the answer is wrong.
 
 How much of it there can be is settled in advance by two quantities: how often
 each probe is wrong, and how much those two sets of mistakes overlap. Neither is
 sufficient on its own. A pair of probes can be individually excellent and still
 hide most of a model's errors if they are wrong on the same items, and no amount
-of accuracy in either one repairs that --- the overlap term is simply added on top.
-Section~\ref{sec:theory} makes this exact and derives the ceiling: the blind spot
+of accuracy in either one repairs that; the overlap term is simply added on top.
+Section~\ref{sec:theory} makes this exact and derives the ceiling. The blind spot
 cannot be larger than the better probe's own error rate, and cannot be driven
-below the product of the two rates except by anti-correlated mistakes, which
-models trained on overlapping corpora do not have.
+below the product of the two rates except through anti-correlated mistakes.
 
-\paragraph{Why a linear map, and why it cuts both ways.}
-Reading one model's probe on another requires putting the two activation spaces
-in correspondence, and the choice of a \emph{linear} map is not a convenience.
-For discriminative models including autoregressive language models,
-identifiability results imply that two models inducing the same conditional
-distribution have representations equal up to an invertible linear transformation
-\citep{nielsen2026logit}; a linear map is the object the theory says should
-suffice. Empirically the same conclusion arrives from the other direction. The
-platonic representation hypothesis holds that independently trained models
-converge toward a shared representation as they scale \citep{huh2024platonic},
-and affine maps between the late hidden states of independent models do preserve
-decision boundaries and confidence structure well enough that one model's states
-can sometimes be decoded by another's frozen output head
-\citep{gorbett2026ventriloquist}.
-
-That convergence is what makes this paper's method possible, and it is also what
-makes the method's failure predictable. If two models come to represent the world
-the same way, they are wrong about the same things: the hypothesis that licenses
-reading model $A$'s probe on model $B$ predicts that the two readouts will share
-a blind spot. Both halves of that tension are measurable, and we measure both.
-
-Two cautions follow, and we carry them through the paper rather than relegating
-them. First, the compatibility that linear maps exploit has been localized to the
-final one or two layers --- a late-stage, output-space phenomenon rather than
-evidence of shared reasoning \citep{gorbett2026ventriloquist} --- so what a
-transported probe reads is a late-stage representation, and we say that rather
-than claiming access to belief. Second, closeness of output distributions does not
-imply linear representational similarity: KL divergence is a poor control on the
-quantity that governs whether a probe survives a map, which is why a pair of
-models can agree in their outputs while differing in the structure a probe reads
-\citep{nielsen2026logit}. That gap is precisely the room in which an
-internal-state measurement can say something an output-level one cannot.
+\paragraph{What we test.}
+We go beyond asking whether shared error persists in internal readouts in three
+ways. First, we decompose false agreement into the probes' individual error
+rates and their error correlation, showing how greater independence can be
+offset by lower accuracy. Second, we test whether choosing models from different
+families reduces this blind spot after accounting for model size and probe
+estimator. Third, we ask whether false agreement can itself be detected, fitting
+a classifier to distinguish false from genuine agreement and evaluating it both
+in-domain and on unseen data distributions.
 
 \paragraph{Contributions.}
-Our subject is a pair of models and the two readouts taken from them, scored
-against ground truth to find the items on which both are wrong in the same
-direction. The study covers $49$ ordered pairs drawn from
-ten open-weight models across four families and more than an order of magnitude of
-scale, on five datasets, with the overseer never larger than the model it
-oversees. Four contributions follow.
+The study covers $571$ unique model-pair--dataset cells formed from $16$
+open-weight models across five families, spanning $1.7$B to $405$B parameters,
+on five datasets and with two supervised probe estimators. It makes four
+contributions.
 
 \begin{itemize}
 \itemsep0em
-\item \textbf{An exact decomposition of the blind spot}
-  (Section~\ref{sec:theory}), with an upper bound fixed by the more accurate
-  probe's own error rate. It is what tells us the quantity to select for is not
-  accuracy, and it is what later explains a result we did not expect.
-\item \textbf{The measurement at the level of internal belief}
-  (Section~\ref{sec:results}). False agreement is common, and the two probes'
-  errors are positively correlated in nearly every pair: the blind spot is a
-  property of what these models represent, not only of what they say.
-\item \textbf{A negative result on diversity.} Drawing the two models from
-  different families does not reduce false agreement. The decomposition accounts
-  for it: the gain in independence is paid for in accuracy, and the two effects
-  offset almost exactly. The obvious remedy is not one.
-\item \textbf{The cost of transport, and the limit of self-diagnosis.} A probe
-  validated on one model is only useful on another if it survives the map between
-  them, so we measure what the trip costs in discriminative performance rather
-  than assuming it is free --- it ranges from negligible to total failure across
-  datasets. We then ask whether the shared error that constitutes the blind spot
-  leaves a signature a classifier can learn, and find that it largely does not,
-  except where false agreement is already rare. This is the representation-level
-  counterpart of a result proved for judge scores, that common-mode error is not
-  identifiable from the judges' own outputs \citep{afrin2026ensembles}.
+\item \textbf{A measurable account of the blind spot.}
+  We define false agreement for two internal readouts and decompose it into
+  individual false-positive rates and error correlation. Fr\'echet bounds locate
+  its feasible range and show why accuracy alone cannot characterize it.
+\item \textbf{A broad measurement of shared readout error.}
+  False agreement averages $2$--$25\%$ across datasets, and probe errors are
+  positively correlated in $84$--$98\%$ of model-pair--dataset cells, depending
+  on the probe.
+\item \textbf{A negative result for model-family diversity.}
+  With logistic probes, false agreement is $12.5\%$ within families and
+  $13.2\%$ across them; with mass-mean probes, it is $11.7\%$ and $11.2\%$.
+  Cross-family errors are less correlated in aggregate, falling from $0.42$ to
+  $0.34$ with logistic probes and from $0.32$ to $0.24$ with mass-mean probes.
+  Among models with a size ratio below $1.5$, the within- and cross-family
+  correlations are instead $0.389$ and $0.406$ for logistic probes, and $0.283$
+  and $0.286$ for mass-mean probes. Model family therefore does not reliably
+  identify a judge with a smaller shared-error blind spot.
+\item \textbf{A test of whether the blind spot can be detected.}
+  Across the ten available in-domain evaluations, false agreement separates
+  from genuine agreement at $0.75$--$0.97$ AUROC. Under
+  leave-one-dataset-out transfer, however, reviewing the detector's top-ranked
+  $10\%$ recovers $9$--$20\%$ of false agreements on four datasets and
+  $45$--$47\%$ on curated factual statements. False agreement is detectable,
+  but its signature is largely domain-specific.
 \end{itemize}
 
-\noindent Together these bound what agreement between two models' internal
-beliefs can deliver, and locate the limit in shared error rather than in the
-accuracy of either checker.
+\noindent Together, these results make shared error an explicit quantity for
+evaluating model judges rather than an assumption inferred from accuracy or
+model family.

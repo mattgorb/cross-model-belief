@@ -1,4 +1,4 @@
-% Shared (Mis)Understanding --- TMLR submission.
+% Shared (Mis)Understanding: TMLR submission.
 %
 % Named tmlr.tex to match the official template's own document name; the
 % style file it loads is tmlr.sty, which is a different extension and does
@@ -12,7 +12,7 @@
 %   sections/related.tex    related work
 %   sections/appendix_logit.tex  appendix: the logit-distance test
 %   sections/theory.tex     Section 2: the bound on what agreement can catch
-%   sections/method.tex     Section 3: probes, the map, the gates, the data
+%   sections/method.tex     Section 3: probes, detector, protocol, and data
 %   sections/results.tex    Section 5, with figures/ built by scripts/make_figures.py
 % The bibliography is tmlr.bib, beside this file.
 % Everything else we write lives in sections/; the files beside this one are the
@@ -44,7 +44,7 @@
 % math_commands.tex already provides \Cov, \Var and \E; only \Prob is missing.
 \newcommand{\Prob}{\mathbb{P}}
 
-\title{Shared (Mis)Understanding: The Limits of Cross-Model Agreement in Scalable Oversight}
+\title{The Limits of Cross-Model Agreement in Scalable Oversight}
 
 % Authors are hidden while the tmlr package is used without [accepted] or
 % [preprint]; a non-anonymous submission is rejected without review.
@@ -62,29 +62,18 @@
 
 \input{sections/intro}
 
+\input{sections/related}
+
 \input{sections/theory}
 \input{sections/method}
 
-\section{Experiments}
-\label{sec:experiments}
-% TODO. The gates (does the probe read truth; does the map carry it), the
-% false-agreement measurement over 49 pairs, the leave-one-dataset-out transfer
-% of the false-agreement direction, and the operating-point analysis.
-
 \input{sections/results}
 
-\input{sections/related}
+\input{sections/discussion}
 
-\section{Discussion and Limitations}
-\label{sec:discussion}
-% TODO. Chief among them: the probes that work are supervised, so the claim is
-% "fit once, deploy unlabelled", not "label-free"; and we do not yet separate a
-% shared *belief* error from a shared *probe* failure (Sec.~\ref{sec:method}).
+\input{sections/conclusion}
 
 \bibliographystyle{tmlr}
 \bibliography{tmlr}
-
-\appendix
-\input{sections/appendix_logit}
 
 \end{document}

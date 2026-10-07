@@ -1,179 +1,74 @@
-% Section --- Related work. Every citation here was checked against the arXiv API
-% before being used; see tmlr.bib.
+% Section 2: Related work.
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Correlated errors undermine oversight --- at the output level.}
-That models fail together, and that this is a problem for oversight built on
-agreement, is established and is not our claim.
+\paragraph{Model judges and correlated output errors.}
+Language models are widely used to grade outputs, provide feedback, and
+supervise other models \citep{zheng2023judge,irving2018debate,bowman2022measuring,
+burns2023weak}. This use assumes that a judge remains informative when the model
+being judged is wrong. Several studies challenge that assumption at the output
+level. \citet{panickssery2024selfpreference} show that model judges favor their
+own generations. \citet{goel2025alike} introduce CAPA, a chance-adjusted measure
+of agreement on predictions, and find that similarity affects both model
+evaluation and weak-to-strong supervision. Across more than $350$ models,
+\citet{kim2025correlated} find substantial conditional agreement on wrong
+answers, while \citet{ding2026agree} show that agreement does not reliably imply
+correctness. These works establish shared output error. \citet{kim2025correlated}
+also analyze vendor and architecture effects, finding greater output-error
+agreement within companies and model families. We ask the corresponding
+directional question for internal readouts: whether cross-family selection
+reduces false agreement once marginal error rates and model size are accounted
+for. We also test whether shared errors can be detected from joint activations,
+which can reveal truth-related information absent from a model's generated
+response.
 
-\citet{goel2025alike} compare models' \emph{predictions} on benchmarks and define
-CAPA, agreement on wrong answers corrected for the agreement two models would
-reach by chance given their accuracies. With it they show three things: judges
-score models similar to themselves more highly, weak-to-strong training gains
-more when supervisor and student know different things, and similarity has been
-rising across model generations. \citet{kim2025correlated} measure conditional
-error agreement across more than $350$ models from two leaderboards and a
-resume-screening task: when both models err they select the same wrong answer
-roughly $60\%$ of the time, and this rises with accuracy rather than falling,
-persisting across architectures and providers. \citet{ding2026agree} ask whether
-agreement predicts correctness --- across a model's own samples and across a panel
-of judges --- and find that it does not reliably.
+\paragraph{Truth probes and internal readouts.}
+Linear probes can recover directions associated with truth from a model's
+activations. \citet{burns2023ccs} propose an unsupervised consistency-based
+method, and \citet{marks2024geometry} identify a linear truth direction with
+causal relevance. Probes can also outperform a model's expressed confidence on
+items where its output is wrong \citep{liu2023dissonance}, making them a
+plausible instrument for oversight. Their interpretation nevertheless requires
+care. Unsupervised methods may recover a salient binary feature other than truth
+\citep{farquhar2024challenges}, and truth directions do not transfer uniformly
+across tasks and logical forms \citep{bao2025probing}. We therefore validate the
+probes against output confidence and base our main results on supervised linear
+probes. Relatedly, \citet{pandey2026sycophancy} identify internal signals of a
+false user claim across multiple models. Our unit of analysis is different. We
+study the joint readouts of two models and the cases in which both fail in the same
+direction.
 
-All three read what models \emph{say}. We compare what two models
-\emph{represent}, and the distinction is not a refinement: two models can reach
-the same wrong answer by different internal routes, and output-level agreement
-cannot tell those cases apart. Whether a probe-based checker escapes the problem
-depends entirely on which case holds, so the question has to be asked at the
-level of internal state.
+\paragraph{Error correlation and ensemble diversity.}
+That ensemble performance depends on covariance between member errors is
+classical \citep{brown2005diversity}. Likewise, the Fr\'echet bounds describe
+how the marginal rates of two binary events constrain their possible overlap
+\citep{frechet1951tableaux}. We do not claim either result as new. We use them
+to decompose the blind spot of probe-based oversight into the contribution of
+individual error rates and the contribution of correlated error. This differs
+from reporting a new similarity score. The decomposition identifies the range
+of false agreement permitted by probe accuracy and explains why a reduction in
+error correlation need not reduce the absolute overlap of errors.
 
-The relationship to CAPA is worth being precise about, because our
-$\rho/\rho_{\max}$ is the same \emph{kind} of statistic --- error overlap,
-corrected for what the marginals force. The difference is that we obtain it by
-decomposing the false-agreement rate exactly rather than by defining a measure
-(Section~\ref{sec:theory}), and the decomposition does work a defined metric
-cannot: it predicts, and then explains, the result that contradicted our own
-hypothesis. Pairs from different families genuinely have lower error correlation,
-but they carry higher individual error rates, and the identity's two terms cancel
-so the rate does not move. A chance-adjusted metric can report that pattern; an
-identity accounts for it.
+\paragraph{Detecting disagreement and shared error.}
+Cross-model disagreement can itself be useful. \citet{gorbett2026disagreement}
+use one model's surprise at another's answer as a label-free correctness signal
+and improve detection of confident errors over within-model uncertainty
+baselines. Our disagreement router uses the analogous signal from two probe
+verdicts. The harder case is common-mode error, where both readers agree and
+there is no disagreement to route. \citet{afrin2026ensembles} show theoretically
+that the common-mode component of evaluator error is not identifiable from the
+evaluators' scores alone. We test an internal-state counterpart by asking whether false
+agreement leaves a learnable signature in the models' activations, and whether
+that signature transfers to an unseen data distribution.
 
-\paragraph{Probes, truth directions, and their failure modes.}
-\citet{burns2023ccs} recover a truth direction without supervision, and
-\citet{marks2024geometry} show the direction is linear and causally relevant.
-\citet{liu2023dissonance} examine where probes and outputs disagree and find
-probes often the more accurate of the two, which is the premise a probe-based
-checker needs. The method's limits are equally well documented:
-\citet{farquhar2024challenges} show unsupervised discovery can lock onto
-whichever salient binary feature the data offers rather than truth. We reproduce
-that failure --- our unsupervised probe reads truth on curated factual statements
-and not on adversarial misconceptions --- and it is why the probes we rely on are
-supervised. Truth directions are also known not to transfer freely across
-\emph{tasks} and logical forms within a single model
-\citep{bao2025probing}, which is the within-model analogue of the
-across-dataset transfer we measure.
-
-Closest in spirit, \citet{pandey2026sycophancy} read internal state rather than
-outputs, and find the same small set of attention heads carrying a ``this
-statement is wrong'' signal across twelve open-weight models from five labs. A
-shared internal signal across models is therefore observed rather than
-hypothesised, which is prior evidence for the mechanism behind our result. Their
-question is sycophancy --- does a model notice that the \emph{user's} claim is
-false and agree anyway --- so the comparison is one model against its
-interlocutor. Ours is one model's readout against another's, and whether their
-joint failure leaves a signature.
-
-\paragraph{Transporting probes between models.}
-Reusing a probe characterized on one model requires a map between activation
-spaces. \citet{chen2025stitching} fit affine maps between residual streams and
-transfer sparse autoencoders, probes and steering vectors across model sizes;
-\citet{oozeer2025interventions} transfer safety interventions through learned
-mappings across Llama, Qwen and Gemma. The counter-evidence matters too:
-\citet{zhang2026negative} report that a map can align representations well under
-an offline objective while the translated states remain unusable causally inside
-the receiver. Our Gate~B measures what transfer costs a probe in the only unit
-that matters for oversight --- discriminative performance lost --- and we report
-it per dataset rather than as a single verdict, because it ranges from almost
-nothing to total failure.
-
-\paragraph{Representational convergence, and what it licenses.}
-The platonic representation hypothesis \citep{huh2024platonic} holds that
-independently trained models converge toward a shared representation as they
-scale, and it is the premise on which cross-model probing rests: without some
-such convergence there is no reason a probe fitted on one model should mean
-anything read on another. The theoretical form of the claim is sharper.
-Identifiability results for discriminative models imply that two models inducing
-the same conditional distribution have representations equal up to an invertible
-linear transformation, and \citet{nielsen2026logit} ask what survives when the
-distributions are merely close rather than equal. Their answer matters for us
-twice over. Closeness in a logit-based distance does yield linear similarity
-guarantees, which is the licence for using a linear map at all. But closeness in
-KL does \emph{not}: two models can match each other's predictions while failing to
-preserve linear-probe recoverability of the same concepts. Output agreement is
-therefore not evidence of representational agreement, which is the gap the
-output-level studies above cannot see into and this paper measures directly.
-
-\paragraph{Transporting probes between models.}
-Several lines of work fit maps between activation spaces and move something
-through them. \citet{gorbett2026ventriloquist} learn affine maps between the
-final hidden states of independent models and find downstream performance largely
-preserved --- decision boundaries and confidence structure both --- with linear
-alignment sometimes sufficient to decode one model's states through another's
-frozen output head. Three of their findings bound what a transported probe can be
-said to measure, and we adopt all three. Compatibility localizes to the final one
-or two layers, making it a late-stage, output-space phenomenon rather than shared
-reasoning; transfer is asymmetric, with strong-to-weak mappings outperforming
-weak-to-strong and source capacity the limiting factor; and tokenizer overlap
-predicts success. We observe the same asymmetry in a different task, in the
-direction their account predicts.
-
-\citet{chen2025stitching} fit affine maps between residual streams and transfer
-sparse autoencoders, probes and steering vectors across model sizes;
-\citet{oozeer2025interventions} transfer safety interventions through learned
-mappings across Llama, Qwen and Gemma. The counter-evidence matters as much:
-\citet{zhang2026negative} report a map aligning representations well under an
-offline objective while the translated states remain unusable causally inside the
-receiver. Our transport measurement is deliberately in the units that decide the
-question for oversight --- discriminative performance lost by the probe --- and we
-report it per dataset and per direction, because it ranges from almost nothing to
-total failure.
-
-CKA \citep{kornblith2019similarity} is the standard measure of whether two
-networks represent inputs alike, and we report it as context rather than as the
-verdict on transportability. A probe needs one direction to survive where CKA
-grades all of them, and the two come apart: we observe a pair at CKA $0.49$ whose
-transported probe loses $0.004$ AUROC. CKA does predict transfer loss moderately
-across our cells ($r=-0.51$ against the worse of the two directions). The
-quantity \citet{nielsen2026logit} identify would be the better-motivated
-predictor; a version of it computable from our cache does not beat CKA, for
-reasons that are about our proxy rather than their result
-(Appendix~\ref{sec:appendix:logit}).
-
-\paragraph{Cross-model disagreement as a signal.}
-The complement of what we study has been shown to work.
-\citet{gorbett2026disagreement} use a second model's surprise at the first's
-answer as a label-free correctness signal, requiring one forward pass and no
-generation from the verifier, and report substantially better detection of
-confident errors than within-model uncertainty baselines. That establishes that
-cross-model \emph{disagreement} carries correctness information in output space.
-This paper asks the opposite question --- what cross-model \emph{agreement}
-misses --- and moves the measurement into representation space. The free coverage
-in our operating-point analysis is that signal, read from probe verdicts rather
-than from token surprise, and the comparison between the two spaces is one of our
-gates.
-
-\paragraph{Scalable oversight.}
-Debate \citep{irving2018debate}, sandwiching \citep{bowman2022measuring} and
-weak-to-strong training \citep{burns2023weak} all place models in the checking
-role, and \citet{panickssery2024selfpreference} show judges recognize and favour
-their own generations, one concrete mechanism by which a checker's errors
-correlate with the checked model's. On the theoretical side,
-\citet{afrin2026ensembles} analyse evaluator ensembles under optimization
-pressure, decompose the error covariance, and prove that the common-mode
-component is not identifiable from the judges' own scores --- disagreement reveals
-only the orthogonal part. Our empirical finding, that the shared blind spot is
-barely detectable from the activations that produced it, is the
-representation-level analogue of that theorem, reached from the other direction:
-they show the shared component is invisible in the scores, we measure how little
-of it is visible in the states.
-
-\paragraph{What is new here.}
-Three things, stated narrowly. (i) The measurement is of internal readouts rather
-than outputs, which is the only level at which the question above can be settled,
-and no prior work measures agreement between two models' probes. (ii) The rate is
-derived rather than defined, giving an upper bound set by the better probe's own
-error rate and an explanation for why family diversity does not help. (iii) Two
-experiments have no counterpart in the work above: the cost of transporting a
-probe between models, measured in discriminative performance lost and reported
-per dataset and per direction; and the detectability of the blind spot, where a
-direction is fitted on the false agreements of four datasets and tested on a
-fifth.
-
-\paragraph{Ensemble diversity.}
-The dependence of ensemble error on the covariance between members is classical
-\citep{brown2005diversity}, and the correlation floor we state for $N$ overseers
-is a restatement of it rather than a new result. The constraint that a joint
-distribution's marginals impose on how much two binary errors can overlap is
-older still \citep{frechet1951tableaux}. Our use of both is to turn them on
-probe-based oversight and to report where the measured quantities sit inside the
-bounds they imply.
+\paragraph{What this paper adds.}
+First, we define and measure false agreement between two models' internal
+readouts rather than between their outputs. Second, we use an exact
+decomposition and its bounds to distinguish the effects of probe accuracy from
+error correlation, then measure both across model families, scales, datasets,
+and probe estimators. Third, we test two proposed remedies: selecting a judge
+from another model family and learning a detector for the residual blind spot.
+The first does not reliably reduce false agreement, and the second reveals a
+strong in-domain but largely domain-specific signature. Together, these results
+locate the limit of cross-model agreement in shared error and make that limit a
+measurable object for model-judge selection.

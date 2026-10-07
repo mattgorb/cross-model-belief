@@ -1,11 +1,11 @@
-% Appendix --- the logit-distance test. Negative, and in the appendix because it
+% Appendix: the logit-distance test. Negative, and in the appendix because it
 % is a statement about a proxy rather than about the theory it tests.
 \section{Does Logit Distance Predict Probe Transportability?}
 \label{sec:appendix:logit}
 
 \citet{nielsen2026logit} identify a logit-based distributional distance as the
 quantity that controls linear representational similarity, and show that KL
-closeness does not: two models can match each other's predictions while failing
+closeness does not. Two models can match each other's predictions while failing
 to preserve the linear recoverability of the same concepts. That makes logit
 distance the better-motivated predictor of whether a probe survives the map
 between two models, where Section~\ref{sec:results} reports CKA.
@@ -56,7 +56,7 @@ rte                 & $-0.233$ & $-0.018$ & $-0.139$ & 45 \\
 \bottomrule
 \end{tabular}
 \caption{Within each dataset, against the worse of the two transfer directions.
-For logit distance a \emph{positive} value is the predicted direction: more
+For logit distance a \emph{positive} value is the predicted direction, so more
 distance, more loss.}
 \label{tab:logit-bydataset}
 \end{table}

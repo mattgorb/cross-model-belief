@@ -1,0 +1,43 @@
+\section{Discussion and Limitations}
+\label{sec:discussion}
+
+\paragraph{Implications for model-judge selection.}
+Accuracy alone does not determine whether a second model adds useful oversight.
+What matters is whether its errors overlap those of the model being checked.
+Model family is not a sufficient proxy for that overlap. Cross-family pairs
+have less-correlated errors in aggregate, but the difference disappears among
+similarly sized models and does not reliably reduce false agreement. Judge
+selection should therefore measure both individual accuracy and joint error
+directly, on data representative of deployment.
+
+\paragraph{An output-level reference point.}
+For scale, the released pair-level results of \citet{kim2025correlated} imply
+that two models give the same wrong output on an average of $9.2\%$ of HELM
+questions and $17.7\%$ of Hugging Face leaderboard questions. The corresponding
+rate for our logistic-probe readouts is $7.9\%$. Relative to the union of each
+pair's errors, overlap is $24.2\%$ and $26.7\%$ in their output-level data,
+compared with $31.3\%$ for our internal readouts. These figures are not directly
+matched across models or tasks, but show that shared internal-readout error is
+of the same order as previously measured output error.
+
+\paragraph{The residual blind spot.}
+False agreement is detectable in-domain, showing that shared errors can leave a
+linear signature in model activations. Its uneven transfer to unseen data
+distributions, however, argues against a universal detector fitted once and
+reused without validation. A more realistic use is domain-specific triage, where
+disagreement supplies a first routing signal, and a detector trained on
+representative labeled data prioritizes additional review among the claims on
+which both probes agree.
+
+\paragraph{Scope and limitations.}
+Our results concern supervised probe readouts, not beliefs in an attributional
+sense. A false agreement may reflect a misconception shared by both models, a
+failure mode shared by both probes, or both; the present experiments do not
+separate these explanations. The study also reduces model behavior to binary
+truth judgments over five datasets, and the model-pair cells reuse models and
+items rather than forming independent observations. Finally, the broad
+leave-one-dataset-out analysis is stronger than the available in-domain
+evidence, which currently covers only selected model pairs. These limitations
+narrow the claim but not the measured blind spot. Agreement between two internal
+readouts can conceal substantial shared error, and neither model accuracy nor
+family diversity alone characterizes it.
