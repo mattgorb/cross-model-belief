@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-"""Build the teaser (Figure 1): what disagreement-based oversight cannot see.
+"""Build the teaser (Figure 1): every measured cell against independence.
 
-Two circles, one per probe, each covering the false claims that probe calls
-true. Their union is everything at least one reader gets wrong; the lens where
-they overlap is \\emph{false agreement}, the case both get wrong together. Only
-the crescents produce a disagreement, so only the crescents are visible to an
-oversight scheme that routes on disagreement. The lens is the blind spot.
+One point per model-pair--dataset cell. The horizontal axis is the false
+agreement two probes with these accuracies would produce if their errors were
+independent, $p_1 p_2$; the vertical axis is what was actually measured. The
+diagonal is independence.
 
-The circles are area-proportional: circle areas are the measured error rates
-$p_1$ and $p_2$, and the lens area is the measured false-agreement rate, with the
-centre distance solved numerically so the lens comes out right. The picture is
-therefore a drawing of the data, not an illustration beside it.
+The figure carries both headline results without averaging anything away.
+Points sit above the diagonal, so the two readers fail together more often than
+chance -- the blind spot is larger than probe accuracy alone implies. And the
+two colours are intermingled rather than separated, so choosing a judge from a
+different model family does not move a pair off that line.
 
-Panel B repeats the construction for cross-family pairs. If choosing a judge
-from another model family shrank the blind spot, the lens would be visibly
-smaller. It is not.
+Both probe families are shown because they disagree about the sign of the
+family effect, and a single-probe figure would hide that.
 
     scripts/make_teaser.py
 """
@@ -23,135 +22,63 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle, Rectangle
-from scipy.optimize import brentq
 
-from figstyle import BLUE, GRAY, INK, INK2, ORANGE, PROBES, SURFACE, load_base, save
+from figstyle import (BLUE, GRAY, INK, INK2, NICE, ORANGE, ORDER, PROBES,
+                      SURFACE, load_base, save, style)
 
-PROBE_KEY = "lr"          # headline probe; mass-mean gives the same picture
-# Box height; width is 1/H so the area stays 1. Tall enough for the widest
-# circle, no taller -- the margin above and below the circles is not data.
-BOX_H = 0.70
+FAM_COLOR = {"same": BLUE, "cross": ORANGE}
+FAM_LABEL = {"same": "same model family", "cross": "different family"}
 
 
-def lens_area(d, r1, r2):
-    """Area of the intersection of two circles, centres `d` apart."""
-    if d >= r1 + r2:
-        return 0.0
-    if d <= abs(r1 - r2):
-        return np.pi * min(r1, r2) ** 2
-    a1 = r1 ** 2 * np.arccos((d ** 2 + r1 ** 2 - r2 ** 2) / (2 * d * r1))
-    a2 = r2 ** 2 * np.arccos((d ** 2 + r2 ** 2 - r1 ** 2) / (2 * d * r2))
-    a3 = 0.5 * np.sqrt(max(0.0, (-d + r1 + r2) * (d + r1 - r2)
-                           * (d - r1 + r2) * (d + r1 + r2)))
-    return a1 + a2 - a3
+def panel(ax, df, title, lo, hi):
+    # Log axes: most cells sit near the origin on a linear scale -- false
+    # agreement is a few percent on three of the five datasets -- and the dense
+    # corner hides exactly the pairs an operator would most like to see. The
+    # diagonal is still a straight line under log-log, so "above the line" reads
+    # the same.
+    ax.plot([lo, hi], [lo, hi], color=INK2, linewidth=1.2, zorder=2,
+            linestyle=(0, (4, 3)))
+    ax.set_xscale("log"); ax.set_yscale("log")
+    # on the line itself, at 45 degrees: the axes are log with equal decades and
+    # an equal aspect, so the diagonal really is at 45 degrees
+    ax.annotate("errors independent", (lo * 7.0, lo * 6.2), fontsize=7.5,
+                color=INK2, ha="left", va="top", rotation=45,
+                rotation_mode="anchor")
 
+    for fam in ("cross", "same"):            # same drawn last, it is the smaller set
+        d = df[df.family == fam]
+        ax.scatter(d.fa_independent, d.fa_rate, s=13, alpha=0.55,
+                   color=FAM_COLOR[fam], linewidths=0, zorder=3,
+                   label=f"{FAM_LABEL[fam]}  ($n={len(d)}$)")
 
-def centre_distance(r1, r2, target):
-    """Centre distance that makes the lens area equal `target`."""
-    lo, hi = abs(r1 - r2) + 1e-9, r1 + r2 - 1e-9
-    if lens_area(hi, r1, r2) >= target:
-        return hi
-    if lens_area(lo, r1, r2) <= target:
-        return lo
-    return brentq(lambda d: lens_area(d, r1, r2) - target, lo, hi)
+    above = (df.fa_rate > df.fa_independent).mean()
+    ax.annotate(f"{above:.0%} of cells above the line",
+                (0.035, 0.955), xycoords="axes fraction", fontsize=8,
+                color=INK, va="top")
 
-
-def rates(d):
-    """(weaker probe's error rate, stronger probe's, false agreement).
-
-    Not (overseer, target): the base table holds each pair in both orders,
-    because false agreement and the error correlation are symmetric in the two
-    models, and deduplicating it leaves which model is called the overseer
-    decided by row order. Taking the per-cell max and min instead is invariant
-    to that, and names something real --- the smaller circle is exactly the
-    Frechet ceiling min(p1, p2), so the figure also shows that the overlap can
-    never be larger than the stronger probe's own error rate.
-    """
-    import numpy as _np
-    return (_np.maximum(d.p_overseer, d.p_target).mean(),
-            _np.minimum(d.p_overseer, d.p_target).mean(),
-            d.fa_rate.mean())
-
-
-def venn(ax, p1, p2, fa, title, subtitle, lim):
-    """One panel: the four outcomes on false claims, drawn to scale.
-
-    The box is every false claim. Each circle is the set one probe calls true,
-    so its area is that probe's error rate; the lens is false agreement. What is
-    left -- the box outside both circles -- is the case both probes get right,
-    which is most of the area and is what makes the lens readable as a fraction
-    of the whole rather than of the errors alone.
-
-    Areas are exact: the box is a unit square, circle radii are sqrt(p/pi), and
-    the centre distance is solved so the lens area equals the measured rate.
-    """
-    r1, r2 = np.sqrt(p1 / np.pi), np.sqrt(p2 / np.pi)
-    d = centre_distance(r1, r2, fa)
-    # The box has area 1 but is drawn wide rather than square. A square box is
-    # mostly empty, because the circles only reach across its middle, and the
-    # empty margin is not data -- the "both right" area is the same either way.
-    # A wide box of the same area keeps every proportion exact and removes the
-    # whitespace above and below the circles.
-    H = BOX_H
-    W = 1.0 / H
-    span = d + r1 + r2
-    cx = W / 2 - span / 2 + r1
-    c1, c2 = (cx, H / 2), (cx + d, H / 2)
-
-    ax.add_patch(Rectangle((0, 0), W, H, facecolor="white",
-                           edgecolor=GRAY, linewidth=1.0, zorder=1))
-    for (x, y), r, col in ((c1, r1, BLUE), (c2, r2, ORANGE)):
-        ax.add_patch(Circle((x, y), r, facecolor=col, alpha=0.30,
-                            edgecolor=col, linewidth=1.5, zorder=2))
-    lens = Circle(c1, r1, facecolor=INK2, alpha=0.60, edgecolor="none", zorder=3)
-    ax.add_patch(lens)
-    lens.set_clip_path(Circle(c2, r2, transform=ax.transData))
-
-    both_right = 1.0 - p1 - p2 + fa
-    # each label at the middle of the region it names, not at the circle centre:
-    # the lens is wide enough that a label placed at a circle's centre lands on
-    # top of the lens label
-    left, right = c2[0] - r2, c1[0] + r1          # the lens spans these
-    # Labelled by what each probe SAYS, not by whether it was right. Every claim
-    # in the box is false, so "both right" reads as a statement about the claims
-    # rather than about the probes, which is the opposite of what is meant.
-    ax.annotate(f"both say\ntrue\n{fa:.0%}", ((left + right) / 2, H / 2),
-                ha="center", va="center", fontsize=8.5, color="white",
-                fontweight="bold", zorder=5)
-    ax.annotate(f"only the weaker\nprobe says true\n{p1 - fa:.0%}",
-                (((c1[0] - r1) + left) / 2, H / 2), ha="center", va="center",
-                fontsize=7.5, color=INK, zorder=5)
-    ax.annotate(f"only the stronger\nprobe says true\n{p2 - fa:.0%}",
-                (c2[0] + r2 + 0.14, H / 2), ha="left", va="center",
-                fontsize=7.5, color=INK, zorder=5)
-    ax.annotate(f"both say false  {both_right:.0%}", (W - 0.02, 0.03),
-                ha="right", va="bottom", fontsize=8, color=INK2, zorder=5)
-    # bottom-left: the top-left corner is inside the larger circle once the
-    # error rates grow, and "both say false" already occupies bottom-right
-    ax.annotate("every claim in this box is false", (0.02, 0.03),
-                ha="left", va="bottom", fontsize=7, color=GRAY, zorder=5)
-
-    ax.set_xlim(-0.02, W + 0.02); ax.set_ylim(-0.02, H + 0.02)
-    ax.set_aspect("equal"); ax.axis("off"); ax.set_facecolor(SURFACE)
-    ax.set_title(title, fontsize=10.5, color=INK, pad=6)
-    ax.annotate(subtitle, (0.5, -0.10), xycoords="axes fraction", ha="center",
-                fontsize=7.5, color=INK2)
+    ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
+    ax.set_aspect("equal")
+    style(ax, "false agreement if errors were independent",
+          "measured false agreement")
+    ax.grid(axis="y", color=GRAY, alpha=0.35, linewidth=0.6)
+    ax.set_title(title, fontsize=10.5, color=INK, loc="left", pad=8)
+    ax.legend(frameon=False, fontsize=7.5, labelcolor=INK2, loc="lower right",
+              handletextpad=0.3, scatterpoints=1)
 
 
 def main() -> int:
-    df = load_base(PROBE_KEY)
-    groups = {f: df[df.family == f] for f in ("same", "cross")}
-    # the unit box is the common scale, so no shared limit has to be computed
-    lim = 1.0
-    fig, axes = plt.subplots(1, 2, figsize=(10.4, 2.9))
-    for ax, fam, title in ((axes[0], "same", "Judge from the same model family"),
-                           (axes[1], "cross", "Judge from a different family")):
-        d = groups[fam]
-        venn(ax, *rates(d), title, f"{len(d)} pair--dataset cells", lim)
-    # No suptitle and no footer line: both duplicated the LaTeX caption, and a
-    # figure that repeats its own caption wastes the width it is given.
-    fig.subplots_adjust(wspace=0.10)
+    frames = {k: load_base(k) for _, _, k in PROBES}
+    # one pair of limits for both panels, so the two probes are comparable and
+    # nothing is clipped onto an axis -- clipping produced a false column of
+    # points on the left edge, 64 of 571 cells for the logistic probe
+    lo = min(min(d.fa_independent.min(), d.fa_rate.min())
+             for d in frames.values()) * 0.7
+    hi = max(max(d.fa_independent.max(), d.fa_rate.max())
+             for d in frames.values()) * 1.4
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.3))
+    for ax, (name, _, key) in zip(axes, PROBES):
+        panel(ax, frames[key], f"{name} probes", lo, hi)
+    fig.subplots_adjust(wspace=0.28)
     print("writing teaser:")
     save(fig, "fig0_teaser")
     return 0

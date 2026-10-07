@@ -15,21 +15,19 @@ the model being checked is wrong.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig0_teaser}
-\caption{\textbf{Only disagreement is visible; the overlap is not.} Every claim
-in the box is false, and each circle is the set one probe nonetheless calls
-true, so its area is that probe's error rate. All four areas are to scale.
-Where exactly one probe says true the two readers disagree and the claim can be
-routed for review; where both say true there is no disagreement to route and
-nothing flags it. Within a family that overlap is $12.5\%$ of false claims,
-larger than either crescent alone, while the stronger probe's crescent is only
-$4.4\%$ --- almost everything the better probe gets wrong, the weaker one gets
-wrong too. Choosing a judge from a different model family (right) does not
-shrink the overlap, $13.2\%$ against $12.5\%$, a difference indistinguishable
-from zero; it enlarges the circles instead, because cross-family pairs are the
-less accurate ones. Averages over all $571$ model-pair--dataset cells with
-logistic probes. The datasets differ widely behind this average, from $1.5\%$
-false agreement on Geometry of Truth to $25.5\%$ on BoolQ
-(Section~\ref{sec:results}).}
+\caption{\textbf{Two probes fail together more often than their accuracies
+imply, and model-family diversity does not change that.} One point per
+model-pair--dataset cell, all $571$ of them, under each probe family. The
+horizontal axis is the false agreement two probes with these accuracies would
+produce if their errors were independent, $p_1p_2$; the vertical axis is what we
+measure. The dashed line is independence. Almost every cell lies above it ---
+$98\%$ for logistic probes, $84\%$ for mass-mean --- so the blind spot is larger
+than probe accuracy alone implies, and the gap is the contribution of
+correlated error. Pairing a judge from a different model family (orange) does
+not move a cell off that line: the two colours are intermingled at every point
+along it. Axes are logarithmic because false agreement spans two orders of
+magnitude across datasets, from under $2\%$ on curated factual statements to
+over $25\%$ on BoolQ.}
 \label{fig:teaser}
 \end{figure}
 
