@@ -87,32 +87,35 @@ contributions.
 
 \begin{itemize}
 \itemsep0em
-\item \textbf{A measurable account of the blind spot.}
-  We define false agreement for two internal readouts and decompose it into
-  individual false-positive rates and error correlation. Fr\'echet bounds locate
-  its feasible range and show why accuracy alone cannot characterize it.
-\item \textbf{A broad measurement of shared readout error.}
-  False agreement averages $2$--$25\%$ across datasets, and probe errors are
-  positively correlated in $84$--$98\%$ of model-pair--dataset cells, depending
-  on the probe, placing every dataset above the rate two independent probes
-  would reach (Figure~\ref{fig:teaser}A).
+\item \textbf{A measurable account of the blind spot, and a broad measurement of
+  it.} We define false agreement for two internal readouts and decompose it
+  exactly into the two probes' individual false-positive rates and the
+  correlation between their errors; Fr\'echet bounds locate its feasible range
+  and show why accuracy alone cannot characterize it. Measured across $571$
+  unique model-pair--dataset cells --- $16$ models from five families, $1.7$B to
+  $405$B parameters, five datasets, two probe estimators --- false agreement
+  averages $2$--$26\%$ of false claims, and probe errors are positively
+  correlated in $84$--$98\%$ of cells depending on the probe, placing every
+  dataset above the rate two independent probes would reach
+  (Figure~\ref{fig:teaser}A).
 \item \textbf{A negative result for model-family diversity.}
   With logistic probes, false agreement is $12.5\%$ within families and
   $13.2\%$ across them; with mass-mean probes, it is $11.7\%$ and $11.2\%$.
-  Cross-family errors are less correlated in aggregate, falling from $0.42$ to
-  $0.34$ with logistic probes and from $0.32$ to $0.24$ with mass-mean probes.
-  Among models with a size ratio below $1.5$, the within- and cross-family
-  correlations are instead $0.389$ and $0.406$ for logistic probes, and $0.283$
-  and $0.286$ for mass-mean probes. Model family therefore does not reliably
-  identify a judge with a smaller shared-error blind spot
+  Neither difference is distinguishable from zero, and the sign reverses between
+  probes. Cross-family errors are less correlated in aggregate, falling from
+  $0.42$ to $0.34$ with logistic probes and from $0.32$ to $0.24$ with mass-mean
+  probes. Among models with a size ratio below $1.5$, however, the within- and
+  cross-family correlations are instead $0.389$ and $0.406$ for logistic probes,
+  and $0.283$ and $0.286$ for mass-mean probes: the aggregate reduction reflects
+  the size gap between families, not diversity itself. Model family therefore
+  does not reliably identify a judge with a smaller shared-error blind spot
   (Figure~\ref{fig:teaser}).
 \item \textbf{A test of whether the blind spot can be detected.}
-  Across the ten available in-domain evaluations, false agreement separates
-  from genuine agreement at $0.75$--$0.97$ AUROC. Under
-  leave-one-dataset-out transfer, however, reviewing the detector's top-ranked
-  $10\%$ recovers $9$--$20\%$ of false agreements on four datasets and
-  $45$--$47\%$ on curated factual statements. False agreement is detectable,
-  but its signature is largely domain-specific.
+  Evaluated within a dataset, false agreement separates from genuine agreement
+  at a mean AUROC of $0.81$. Under leave-one-dataset-out transfer, however,
+  reviewing the detector's top-ranked $10\%$ recovers $9$--$20\%$ of false
+  agreements on four datasets and $45$--$48\%$ on curated factual statements.
+  False agreement is detectable, but its signature is largely domain-specific.
 \end{itemize}
 
 \noindent Together, these results make shared error an explicit quantity for
