@@ -113,19 +113,24 @@ def venn(ax, p1, p2, fa, title, subtitle, lim):
     # the lens is wide enough that a label placed at a circle's centre lands on
     # top of the lens label
     left, right = c2[0] - r2, c1[0] + r1          # the lens spans these
-    ax.annotate(f"both wrong\n{fa:.0%}", ((left + right) / 2, H / 2),
+    # Labelled by what each probe SAYS, not by whether it was right. Every claim
+    # in the box is false, so "both right" reads as a statement about the claims
+    # rather than about the probes, which is the opposite of what is meant.
+    ax.annotate(f"both say\ntrue\n{fa:.0%}", ((left + right) / 2, H / 2),
                 ha="center", va="center", fontsize=8.5, color="white",
                 fontweight="bold", zorder=5)
-    ax.annotate(f"only the weaker\nprobe wrong\n{p1 - fa:.0%}",
+    ax.annotate(f"only the weaker\nprobe says true\n{p1 - fa:.0%}",
                 (((c1[0] - r1) + left) / 2, H / 2), ha="center", va="center",
                 fontsize=7.5, color=INK, zorder=5)
-    ax.annotate(f"only the stronger\nprobe wrong\n{p2 - fa:.0%}",
+    ax.annotate(f"only the stronger\nprobe says true\n{p2 - fa:.0%}",
                 (c2[0] + r2 + 0.14, H / 2), ha="left", va="center",
                 fontsize=7.5, color=INK, zorder=5)
-    ax.annotate(f"both right  {both_right:.0%}", (W - 0.02, 0.025),
+    ax.annotate(f"both say false  {both_right:.0%}", (W - 0.02, 0.03),
                 ha="right", va="bottom", fontsize=8, color=INK2, zorder=5)
-    ax.annotate("every false claim", (0.015, H - 0.02), ha="left", va="top",
-                fontsize=7, color=GRAY, zorder=5)
+    # bottom-left: the top-left corner is inside the larger circle once the
+    # error rates grow, and "both say false" already occupies bottom-right
+    ax.annotate("every claim in this box is false", (0.02, 0.03),
+                ha="left", va="bottom", fontsize=7, color=GRAY, zorder=5)
 
     ax.set_xlim(-0.02, W + 0.02); ax.set_ylim(-0.02, H + 0.02)
     ax.set_aspect("equal"); ax.axis("off"); ax.set_facecolor(SURFACE)
@@ -136,7 +141,6 @@ def venn(ax, p1, p2, fa, title, subtitle, lim):
 
 def main() -> int:
     df = load_base(PROBE_KEY)
-    name = dict((k, n) for n, _, k in PROBES)[PROBE_KEY]
     groups = {f: df[df.family == f] for f in ("same", "cross")}
     # the unit box is the common scale, so no shared limit has to be computed
     lim = 1.0
@@ -145,13 +149,8 @@ def main() -> int:
                            (axes[1], "cross", "Judge from a different family")):
         d = groups[fam]
         venn(ax, *rates(d), title, f"{len(d)} pair--dataset cells", lim)
-    fig.suptitle("Only disagreement is visible. The overlap is not.",
-                 fontsize=12, color=INK, y=1.04)
-    fig.text(0.5, -0.06,
-             "The box is every false claim; circle areas are the share each probe "
-             "calls true, and the overlap is false agreement, which no "
-             f"disagreement flags. All areas to scale, {name} probes.",
-             ha="center", fontsize=8, color=INK2)
+    # No suptitle and no footer line: both duplicated the LaTeX caption, and a
+    # figure that repeats its own caption wastes the width it is given.
     fig.subplots_adjust(wspace=0.10)
     print("writing teaser:")
     save(fig, "fig0_teaser")
