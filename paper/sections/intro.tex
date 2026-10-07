@@ -17,10 +17,13 @@ the model being checked is wrong.
 \includegraphics[width=\textwidth]{figures/fig0_teaser}
 \caption{\textbf{The two results of this paper.}
 \textbf{(A)} Measured false agreement (dots) inside the interval the
-decomposition confines it to: the left tick is the rate two probes with the same
-accuracies would reach if their errors were independent, the right tick is the
-ceiling $\min(p_1,p_2)$. Every dataset sits above independence under both probe
-families, so the two readers fail together more often than chance.
+decomposition confines it to: the left tick is $p_1p_2$, the rate the same two
+probes would reach if their errors were independent, and the right tick is the
+ceiling $\min(p_1,p_2)$. Both ends are functions of the probes' own
+false-positive rates, so each probe family has its own interval --- a more
+accurate probe gets a lower and tighter one, which is why the two rows of a
+dataset do not share bounds. Every dataset sits above independence under both
+probe families, so the two readers fail together more often than chance.
 \textbf{(B)} The effect of pairing models from different families, in percentage
 points. False agreement does not move ($+0.7$ logistic, $-0.5$ mass-mean).
 Error correlation does fall ($-7.8$, $-8.5$), but the reduction disappears once
