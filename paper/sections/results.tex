@@ -90,9 +90,21 @@ Geometry of Truth and $0.72$ on RTE, but only $0.56$--$0.63$ elsewhere.
 Logistic-probe results are weaker and remain near chance on IMDB and BoolQ.
 
 The operating point makes the limitation concrete. Reviewing the top-ranked
-$10\%$ recovers $45$--$47\%$ of false agreements on Geometry of Truth, but only
+$10\%$ recovers $45$--$48\%$ of false agreements on Geometry of Truth, but only
 $9$--$20\%$ on the other four datasets. The signature is strong on curated
 factual statements and largely domain-specific elsewhere.
+
+Fitting and scoring the detector inside a single dataset separates this transfer
+failure from detectability itself. Under five-fold cross-validation over the
+held-out rows of one dataset, the mass-mean detector reaches a mean AUROC of
+$0.812$ over the $446$ cells with at least $20$ false agreements to score, and
+every one of them beats both chance and its own permutation control. The
+strongest operating point in the study is here: on Geometry of Truth, reviewing
+the top-ranked $10\%$ of the claims on which both probes say true recovers
+$77.5\%$ of the false agreements among them, against $48\%$ for the same budget
+under transfer. Detectability and transferability come apart: Geometry of Truth
+and IMDB are close in-domain ($0.926$ and $0.887$), but Geometry of Truth retains
+$96\%$ of its lift above chance under transfer while IMDB retains $33\%$.
 
 \subsection{What an operator gets}
 

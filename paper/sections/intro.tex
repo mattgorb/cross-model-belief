@@ -115,10 +115,14 @@ contributions.
   (Figure~\ref{fig:teaser}).
 \item \textbf{A test of whether the blind spot can be detected.}
   Evaluated within a dataset, false agreement separates from genuine agreement
-  at a mean AUROC of $0.81$. Under leave-one-dataset-out transfer, however,
-  reviewing the detector's top-ranked $10\%$ recovers $9$--$20\%$ of false
-  agreements on four datasets and $45$--$48\%$ on curated factual statements.
-  False agreement is detectable, but its signature is largely domain-specific.
+  at a mean AUROC of $0.81$, and every one of the $446$ scorable cells beats
+  both chance and its own permutation control. The operating point is the
+  concrete form of this: on curated factual statements, reviewing the
+  top-ranked $10\%$ of the claims on which both probes say true recovers
+  $78\%$ of the false agreements among them. Under leave-one-dataset-out
+  transfer the same budget recovers $45$--$48\%$ there and only $9$--$20\%$ on
+  the other four datasets. False agreement is detectable, but its signature is
+  largely domain-specific.
 \end{itemize}
 
 \noindent Together, these results make shared error an explicit quantity for
