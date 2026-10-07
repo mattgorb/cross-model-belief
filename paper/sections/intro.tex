@@ -14,20 +14,21 @@ the model being checked is wrong.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/fig0_teaser}
-\caption{\textbf{Two probes fail together more often than their accuracies
-imply, and model-family diversity does not change that.} One point per
-model-pair--dataset cell, all $571$ of them, under each probe family. The
-horizontal axis is the false agreement two probes with these accuracies would
-produce if their errors were independent, $p_1p_2$; the vertical axis is what we
-measure. The dashed line is independence. Almost every cell lies above it ---
-$98\%$ for logistic probes, $84\%$ for mass-mean --- so the blind spot is larger
-than probe accuracy alone implies, and the gap is the contribution of
-correlated error. Pairing a judge from a different model family (orange) does
-not move a cell off that line: the two colours are intermingled at every point
-along it. Axes are logarithmic because false agreement spans two orders of
-magnitude across datasets, from under $2\%$ on curated factual statements to
-over $25\%$ on BoolQ.}
+\includegraphics[width=0.78\textwidth]{figures/fig0_teaser}
+\caption{\textbf{The blind spot of disagreement-based oversight.} Every claim
+counted here is false, so a probe that says true is wrong. Three of the four
+outcomes are survivable: in the off-diagonal cells the two readouts disagree,
+and an overseer can route the claim for review; in the bottom-right cell both
+reject the false claim. The top-left cell is the problem --- both say true,
+there is no disagreement to route, and nothing flags it. Each cell gives the
+measured share of false claims for judges within the same model family and
+across families. The blind spot does not shrink when the judge comes from a
+different family: $13\%$ against $12\%$, a difference indistinguishable from
+zero. What changes instead is the bottom-right cell, $62\%$ against $67\%$,
+because cross-family pairs are the less accurate ones. Logistic probes,
+averaged over $571$ model-pair--dataset cells; mass-mean probes give the same
+picture with the sign of the family difference reversed and equally
+indistinguishable from zero.}
 \label{fig:teaser}
 \end{figure}
 
