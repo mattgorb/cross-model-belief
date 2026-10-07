@@ -71,7 +71,11 @@ family effect, and the absolute blind spot does not shrink.
 \caption{Leave-one-dataset-out detection by dataset and probe. Left: AUROC for
 ranking false above genuine agreement. Right: the fraction of all false
 agreements recovered by reviewing the top-ranked $10\%$ of claims on which both
-probes say true.}
+probes say true. Cells with fewer than $20$ false agreements in the held-out
+split are excluded, since AUROC is not meaningful on a handful of positives;
+this removes $13$ of $128$ cells for geometry of truth under the mass-mean probe
+and $92$ of $128$ for RTE under the logistic probe, whose point is therefore the
+least well supported in the figure.}
 \label{fig:detect}
 \end{figure}
 

@@ -1,214 +1,136 @@
 #!/usr/bin/env python3
-"""Build the paper's figures from the result CSVs.
+"""Build the paper's numbered figures from the result CSVs.
 
-Four figures, each answering one question the results section asks. Colors are
-the validated three-slot categorical palette (blue / orange / aqua) plus a
-de-emphasis gray; the aqua slot sits below 3:1 against the surface, so every
-chart that uses it carries direct labels, which the relief rule requires.
+Four figures, each answering one question the results section asks. Every one
+reports both probe families side by side: the two disagree often enough that a
+single-probe figure would overstate the finding, and the logistic probe is the
+better belief probe while the mass-mean probe is the better detector.
 
-Static PDF for LaTeX, so the hover layer the interactive guidance asks for does
-not apply; the per-figure data is in the CSVs beside this script.
+Figures 1 and 2 are the panels of the teaser (`make_teaser.py`), computed from
+the same loaders in `figstyle.py` so the two cannot disagree.
+
+Static PDF for LaTeX plus a PNG for eyeballing; the per-figure data is in the
+CSVs beside this script.
 
     scripts/make_figures.py
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from cmb.config import RESULTS_DIR                      # noqa: E402
-
-OUT = Path(__file__).resolve().parent.parent / "paper" / "figures"
-BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"
-GRAY, INK, INK2 = "#b9b8b4", "#0b0b0b", "#52514e"
-SURFACE = "#fcfcfb"
-
-NICE = {"geometry_of_truth": "Geometry of Truth", "truthfulqa": "TruthfulQA",
-        "boolq": "BoolQ", "imdb": "IMDB", "rte": "RTE"}
-# datasets ordered by how often both models are wrong together -- the quantity
-# every figure is about, so the order is the same everywhere
-ORDER = ["geometry_of_truth", "imdb", "boolq", "truthfulqa", "rte"]
+from figstyle import (GRAY, INK, INK2, NICE, ORDER, PROBES, SURFACE,
+                      load_base, load_loo, save, style)
+from make_teaser import panel_bound, panel_diversity
 
 
-def style(ax, xlabel="", ylabel=""):
-    ax.set_facecolor(SURFACE)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
-    for side in ("left", "bottom"):
-        ax.spines[side].set_color(GRAY)
-        ax.spines[side].set_linewidth(0.8)
-    ax.tick_params(colors=INK2, labelsize=8, length=3, width=0.8)
-    ax.grid(axis="x", color=GRAY, alpha=0.35, linewidth=0.6)
-    ax.set_axisbelow(True)
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8.5, color=INK2)
-    if ylabel:
-        ax.set_ylabel(ylabel, fontsize=8.5, color=INK2)
-
-
-def headroom(ax, n, extra=0.55):
-    """Leave space above the top row so its value label cannot meet the legend."""
-    ax.set_ylim(-0.6, n - 1 + extra)
-
-
-def legend_above(ax, ncol=3):
-    """Legend outside the data area. Inside, it collided with the right-hand
-    annotations on every figure here."""
-    ax.legend(frameon=False, fontsize=7.5, labelcolor=INK2, handletextpad=0.4,
-              loc="lower left", bbox_to_anchor=(0, 1.02, 1, 0.12), mode="expand",
-              ncol=ncol, borderaxespad=0)
-
-
-def save(fig, name):
-    fig.patch.set_facecolor(SURFACE)
-    fig.savefig(OUT / f"{name}.pdf", bbox_inches="tight", facecolor=SURFACE)
-    plt.close(fig)
-    print(f"  {name}.pdf")
-
-
-# --- 1. false agreement against the bound it must sit inside -----------------
-def fig_bound(base):
-    g = (base.groupby("dataset")
-             .agg(fa=("fa_rate", "mean"), indep=("fa_independent", "mean"),
-                  hi=("frechet_hi", "mean")).reindex(ORDER))
-    y = np.arange(len(g))[::-1]
-    col_x = g.hi.max() * 1.12            # fixed column for the right-hand note
-    fig, ax = plt.subplots(figsize=(6.4, 2.7))
-    # the feasible interval, as a track from independence to the ceiling
-    ax.hlines(y, g.indep, g.hi, color=GRAY, linewidth=6, alpha=0.5,
-              capstyle="round", zorder=1)
-    ax.plot(g.hi, y, "|", color=INK2, markersize=10, markeredgewidth=1.4,
-            zorder=2, label="ceiling (better probe's error rate)")
-    ax.plot(g.indep, y, "|", color=INK2, markersize=10, markeredgewidth=1.4,
-            zorder=2, label="if errors were independent")
-    ax.plot(g.fa, y, "o", color=BLUE, markersize=9, zorder=3,
-            markeredgecolor=SURFACE, markeredgewidth=2, label="measured")
-    for yi, (ds, r) in zip(y, g.iterrows()):
-        ax.annotate(f"{r.fa:.3f}", (r.fa, yi), textcoords="offset points",
-                    xytext=(0, 9), ha="center", fontsize=7.5, color=INK)
-        frac = (r.fa - r.indep) / max(r.hi - r.indep, 1e-9)
-        ax.annotate(f"{frac:.0%} of the way to the ceiling", (col_x, yi),
-                    textcoords="offset points", xytext=(0, -3), ha="left",
-                    fontsize=7, color=INK2)
-    ax.set_yticks(y, [NICE[d] for d in g.index], fontsize=8.5, color=INK)
-    style(ax, "false agreement, as a share of false claims")
-    ax.set_xlim(-0.01, col_x * 1.52)
-    headroom(ax, len(g))
-    legend_above(ax)
+# --- 1. false agreement against the interval it must sit inside --------------
+def fig_bound(frames):
+    """Teaser panel A, standalone and with the rates labelled."""
+    fig, ax = plt.subplots(figsize=(6.6, 3.2))
+    panel_bound(ax, frames, labels=True)
+    ax.set_title("Measured false agreement between independence and maximal "
+                 "overlap", fontsize=10.5, color=INK, loc="left", pad=10)
+    ax.annotate("left tick: independence    right tick: maximal overlap",
+                (0, -0.30), xycoords="axes fraction", fontsize=7.5, color=INK2)
     save(fig, "fig1_bound")
 
 
-# --- 2. what transport costs, by dataset -------------------------------------
-def fig_transport(pt):
-    g = (pt.assign(worst=pt[["transfer_loss_a_to_b", "transfer_loss_b_to_a"]]
-                   .max(axis=1))
-           .groupby("dataset")
-           .agg(ab=("transfer_loss_a_to_b", "mean"),
-                ba=("transfer_loss_b_to_a", "mean"),
-                ok=("worst", lambda s: (s <= 0.05).mean())).reindex(ORDER))
-    y = np.arange(len(g))[::-1]
-    h = 0.34
-    col_x = max(g.ab.max(), g.ba.max()) * 1.12
-    fig, ax = plt.subplots(figsize=(6.4, 2.8))
-    ax.barh(y + h / 2 + 0.02, g.ab, height=h, color=BLUE,
-            label="overseer's probe, read on the target")
-    ax.barh(y - h / 2 - 0.02, g.ba, height=h, color=ORANGE,
-            label="target's probe, read on the overseer")
-    ax.axvline(0.05, color=INK2, linewidth=1, linestyle=(0, (3, 2)))
-    ax.annotate("0.05 tolerance", (0.05, max(y) + 0.45), fontsize=7,
-                color=INK2, ha="center")
-    for yi, (ds, r) in zip(y, g.iterrows()):
-        ax.annotate(f"{r.ab:.3f}", (r.ab, yi + h / 2 + 0.02),
-                    xytext=(4, -3), textcoords="offset points", fontsize=7.5,
-                    color=INK)
-        ax.annotate(f"{r.ba:.3f}", (r.ba, yi - h / 2 - 0.02),
-                    xytext=(4, -3), textcoords="offset points", fontsize=7.5,
-                    color=INK)
-        ax.annotate(f"{r.ok:.0%} of pairs within it", (col_x, yi),
-                    xytext=(0, -3), textcoords="offset points", fontsize=7,
-                    color=INK2)
-    ax.set_yticks(y, [NICE[d] for d in g.index], fontsize=8.5, color=INK)
-    style(ax, "AUROC lost by reading the probe on the other model")
-    ax.set_xlim(0, col_x * 1.42)
-    headroom(ax, len(g))
-    legend_above(ax, ncol=2)
-    save(fig, "fig2_transport")
+# --- 2. what family diversity changes, and what it does not ------------------
+def fig_diversity(frames):
+    """Teaser panel B, standalone."""
+    fig, ax = plt.subplots(figsize=(6.6, 2.9))
+    panel_diversity(ax, frames)
+    ax.set_title("Model-family diversity changes correlation, not the blind spot",
+                 fontsize=10.5, color=INK, loc="left", pad=10)
+    save(fig, "fig2_diversity")
 
 
-# --- 3. is the blind spot detectable on an unseen dataset? -------------------
-def fig_detect(loo):
-    ok = loo[loo.row2_test_n >= 20]
-    g = (ok.groupby("held_out")
-           .agg(auroc=("direction_auroc", "mean"),
-                shuf=("shuffled_auroc", "mean"), sd=("shuffled_sd", "mean"),
-                n=("margin", "size")).reindex(ORDER))
-    y = np.arange(len(g))[::-1]
-    fig, ax = plt.subplots(figsize=(6.4, 2.7))
-    # the control's own noise band, so a margin inside it reads as not-measured
-    for yi, (_, r) in zip(y, g.iterrows()):
-        ax.add_patch(plt.Rectangle((r.shuf - 2 * r.sd, yi - 0.22),
-                                   4 * r.sd, 0.44, color=GRAY, alpha=0.45,
-                                   linewidth=0))
-    ax.plot(g.shuf, y, "|", color=INK2, markersize=11, markeredgewidth=1.4,
-            label="shuffled-label control ($\\pm$2 sd)")
-    ax.hlines(y, g.shuf, g.auroc, color=BLUE, linewidth=2, zorder=2)
-    ax.plot(g.auroc, y, "o", color=BLUE, markersize=9, zorder=3,
-            markeredgecolor=SURFACE, markeredgewidth=2, label="detector")
-    for yi, (ds, r) in zip(y, g.iterrows()):
-        inside = abs(r.auroc - r.shuf) < 2 * r.sd
-        ax.annotate(f"+{r.auroc - r.shuf:.3f}" + ("  (inside the band)" if inside else ""),
-                    (r.auroc, yi), xytext=(10, -3), textcoords="offset points",
-                    fontsize=7.5, color=INK2 if inside else INK)
-    ax.set_yticks(y, [NICE[d] for d in g.index], fontsize=8.5, color=INK)
-    style(ax, "AUROC separating false agreement from genuine agreement")
-    ax.set_xlim(0.40, 1.04)
-    headroom(ax, len(g))
-    legend_above(ax, ncol=2)
+# --- 3. does the blind spot survive an unseen dataset? -----------------------
+def fig_detect(loos, min_rows=20):
+    """Ranking quality and one operating point, leave-one-dataset-out.
+
+    AUROC alone is not enough here: a detector can rank well and still surface
+    few false agreements inside a budget a reviewer would actually spend, so the
+    recall at a 10% budget sits beside it.
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 3.0))
+    y = np.arange(len(ORDER))[::-1]
+    for i, (name, color, key) in enumerate(PROBES):
+        df = loos[key]
+        g = (df[df.row2_test_n >= min_rows].groupby("held_out")
+             .agg(auroc=("direction_auroc", "mean"),
+                  rec=("recall_10", "mean")).reindex(ORDER))
+        off = 0.16 if i == 0 else -0.16
+        axes[0].plot(g.auroc, y + off, "o", color=color, markersize=7,
+                     markeredgecolor=SURFACE, markeredgewidth=1.6, label=name)
+        axes[1].plot(100 * g.rec, y + off, "o", color=color, markersize=7,
+                     markeredgecolor=SURFACE, markeredgewidth=1.6, label=name)
+    axes[0].axvline(0.5, color=INK2, linewidth=1, linestyle=(0, (3, 2)))
+    for ax, xlab, title in (
+            (axes[0], "leave-one-dataset-out AUROC", "A  Ranking performance"),
+            (axes[1], "false agreements recovered at a 10% budget",
+             "B  Operating point")):
+        ax.set_yticks(y, [NICE[d] for d in ORDER], fontsize=8.5, color=INK)
+        ax.set_ylim(-0.7, len(ORDER) - 0.15)
+        style(ax, xlab)
+        ax.set_title(title, fontsize=10.5, color=INK, loc="left", pad=10)
+    axes[1].xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    # below the axes: at upper right it lands on the Geometry of Truth dot,
+    # which is the rightmost point in the panel
+    axes[1].legend(frameon=False, fontsize=8, labelcolor=INK2, ncol=2,
+                   loc="upper left", bbox_to_anchor=(0, -0.22),
+                   handletextpad=0.4)
+    fig.subplots_adjust(wspace=0.42)
     save(fig, "fig3_detect")
 
 
-# --- 4. which pairs catch the most, and where it comes from ------------------
-def fig_pairs(loo, k=12):
-    ok = loo[(loo.held_out == "truthfulqa") & (loo.row2_test_n >= 20)].copy()
-    ok["detector"] = ok.caught_10 - ok.router_coverage
-    ok = ok.sort_values("caught_10", ascending=False)
-    top = ok.head(k).iloc[::-1]
-    y = np.arange(len(top))
-    fig, ax = plt.subplots(figsize=(6.4, 3.4))
-    ax.barh(y, top.router_coverage, color=BLUE, height=0.62,
-            label="free: the two probes disagree")
-    ax.barh(y, top.detector, left=top.router_coverage + 0.004, color=ORANGE,
-            height=0.62, label="added by the detector, 10% check budget")
-    for yi, (_, r) in zip(y, top.iterrows()):
-        ax.annotate(f"{r.caught_10:.2f}", (r.caught_10, yi), xytext=(6, -3),
-                    textcoords="offset points", fontsize=7.5, color=INK)
-    ax.set_yticks(y, [f"{r.overseer} $\\rightarrow$ {r.target}"
-                      for _, r in top.iterrows()], fontsize=7.5, color=INK)
-    style(ax, "share of all false claims caught, TruthfulQA held out")
-    ax.set_xlim(0, top.caught_10.max() * 1.16)
-    headroom(ax, len(top), extra=0.75)
-    legend_above(ax, ncol=2)
+# --- 4. where the caught errors actually come from ---------------------------
+def fig_pairs(loos):
+    """Coverage at a 10% budget, split into what disagreement already supplies
+    and what the detector adds.
+
+    Reporting `caught` alone credits the detector with errors the two probes
+    flagged by disagreeing, which needs no detector at all. The split is the
+    honest version, and on most datasets the hatched part is the smaller one.
+    """
+    fig, ax = plt.subplots(figsize=(7.4, 3.2))
+    y = np.arange(len(ORDER))[::-1]
+    h = 0.34
+    for i, (name, color, key) in enumerate(PROBES):
+        g = (loos[key].groupby("held_out")
+             .agg(router=("router_coverage", "mean"),
+                  caught=("caught_10", "mean")).reindex(ORDER))
+        off = h / 2 + 0.02 if i == 0 else -h / 2 - 0.02
+        ax.barh(y + off, 100 * g.router, height=h, color=color,
+                label=f"{name}: disagreement")
+        ax.barh(y + off, 100 * (g.caught - g.router), height=h,
+                left=100 * g.router, color=color, alpha=0.30, hatch="///",
+                edgecolor=color, linewidth=0, label=f"{name}: detector adds")
+        for yi, v in zip(y + off, g.caught):
+            ax.annotate(f"{100 * v:.1f}%", (100 * v, yi), xytext=(4, -3),
+                        textcoords="offset points", fontsize=7.5, color=INK)
+    ax.set_yticks(y, [NICE[d] for d in ORDER], fontsize=8.5, color=INK)
+    ax.set_ylim(-0.7, len(ORDER) - 0.15)
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    style(ax, "share of all false claims caught")
+    ax.set_xlim(0, None)
+    ax.set_title("Disagreement supplies most coverage at a 10% review budget",
+                 fontsize=10.5, color=INK, loc="left", pad=10)
+    ax.legend(frameon=False, fontsize=7.5, labelcolor=INK2, ncol=2,
+              loc="upper left", bbox_to_anchor=(0, -0.22), handletextpad=0.5)
     save(fig, "fig4_pairs")
 
 
 def main() -> int:
-    OUT.mkdir(parents=True, exist_ok=True)
-    base = pd.read_csv(RESULTS_DIR / "sweep_base_all.csv")
-    loo = pd.read_csv(RESULTS_DIR / "sweep_loo_all.csv")
-    pt = pd.read_csv(RESULTS_DIR / "pair_table.csv")
+    frames = {k: load_base(k) for _, _, k in PROBES}
+    loos = {k: load_loo(k) for _, _, k in PROBES}
     print("writing figures:")
-    fig_bound(base)
-    fig_transport(pt)
-    fig_detect(loo)
-    fig_pairs(loo)
+    fig_bound(frames)
+    fig_diversity(frames)
+    fig_detect(loos)
+    fig_pairs(loos)
     return 0
 
 

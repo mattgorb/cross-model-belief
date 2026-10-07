@@ -12,6 +12,23 @@ weak-to-strong training \citep{burns2023weak}, also rely on models checking or
 supervising other models. All depend on the check remaining informative when
 the model being checked is wrong.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig0_teaser}
+\caption{\textbf{The two results of this paper.}
+\textbf{(A)} Measured false agreement (dots) inside the interval the
+decomposition confines it to: the left tick is the rate two probes with the same
+accuracies would reach if their errors were independent, the right tick is the
+ceiling $\min(p_1,p_2)$. Every dataset sits above independence under both probe
+families, so the two readers fail together more often than chance.
+\textbf{(B)} The effect of pairing models from different families, in percentage
+points. False agreement does not move ($+0.7$ logistic, $-0.5$ mass-mean).
+Error correlation does fall ($-7.8$, $-8.5$), but the reduction disappears once
+the two models are of similar size ($+1.7$, $+0.3$), so it reflects the size gap
+between families rather than diversity itself.}
+\label{fig:teaser}
+\end{figure}
+
 Every such approach rests on an assumption that is almost never tested: the
 checker and the model being checked must fail differently. Output-based
 checking, however, has two potential failure modes. The checker cannot assess
@@ -77,7 +94,8 @@ contributions.
 \item \textbf{A broad measurement of shared readout error.}
   False agreement averages $2$--$25\%$ across datasets, and probe errors are
   positively correlated in $84$--$98\%$ of model-pair--dataset cells, depending
-  on the probe.
+  on the probe, placing every dataset above the rate two independent probes
+  would reach (Figure~\ref{fig:teaser}A).
 \item \textbf{A negative result for model-family diversity.}
   With logistic probes, false agreement is $12.5\%$ within families and
   $13.2\%$ across them; with mass-mean probes, it is $11.7\%$ and $11.2\%$.
@@ -86,7 +104,8 @@ contributions.
   Among models with a size ratio below $1.5$, the within- and cross-family
   correlations are instead $0.389$ and $0.406$ for logistic probes, and $0.283$
   and $0.286$ for mass-mean probes. Model family therefore does not reliably
-  identify a judge with a smaller shared-error blind spot.
+  identify a judge with a smaller shared-error blind spot
+  (Figure~\ref{fig:teaser}).
 \item \textbf{A test of whether the blind spot can be detected.}
   Across the ten available in-domain evaluations, false agreement separates
   from genuine agreement at $0.75$--$0.97$ AUROC. Under
