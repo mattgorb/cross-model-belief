@@ -15,20 +15,18 @@ the model being checked is wrong.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig0_teaser}
-\caption{\textbf{The two results of this paper.}
-\textbf{(A)} Measured false agreement (dots) inside the interval the
-decomposition confines it to: the left tick is $p_1p_2$, the rate the same two
-probes would reach if their errors were independent, and the right tick is the
-ceiling $\min(p_1,p_2)$. Both ends are functions of the probes' own
-false-positive rates, so each probe family has its own interval --- a more
-accurate probe gets a lower and tighter one, which is why the two rows of a
-dataset do not share bounds. Every dataset sits above independence under both
-probe families, so the two readers fail together more often than chance.
-\textbf{(B)} The effect of pairing models from different families, in percentage
-points. False agreement does not move ($+0.7$ logistic, $-0.5$ mass-mean).
-Error correlation does fall ($-7.8$, $-8.5$), but the reduction disappears once
-the two models are of similar size ($+1.7$, $+0.3$), so it reflects the size gap
-between families rather than diversity itself.}
+\caption{\textbf{What disagreement-based oversight cannot see.} Each circle
+covers the false claims one probe calls true; its area is that probe's error
+rate on false claims. The crescents are the claims exactly one reader gets
+wrong, which produce a disagreement and can be routed for review. The lens is
+\emph{false agreement}: both readers call the claim true, there is no
+disagreement to route, and nothing flags it. Areas are to scale and shared
+across both panels. The smaller circle is the Fr\'echet ceiling
+$\min(p_1,p_2)$, and the lens nearly fills it --- most of what the stronger
+probe gets wrong, the weaker one gets wrong too. Pairing a judge from a
+different model family (right) does not shrink the lens: $13.2\%$ against
+$12.5\%$, a difference indistinguishable from zero. It enlarges the circles
+instead, because cross-family pairs are the less accurate ones.}
 \label{fig:teaser}
 \end{figure}
 
@@ -100,7 +98,7 @@ contributions.
   averages $2$--$26\%$ of false claims, and probe errors are positively
   correlated in $84$--$98\%$ of cells depending on the probe, placing every
   dataset above the rate two independent probes would reach
-  (Figure~\ref{fig:teaser}A).
+  (Figure~\ref{fig:teaser}).
 \item \textbf{A negative result for model-family diversity.}
   With logistic probes, false agreement is $12.5\%$ within families and
   $13.2\%$ across them; with mass-mean probes, it is $11.7\%$ and $11.2\%$.
