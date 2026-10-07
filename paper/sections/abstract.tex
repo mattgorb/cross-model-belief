@@ -22,9 +22,8 @@ Empirically, we measure both quantities using two families of supervised linear
 probes across $571$ unique model-pair--dataset cells: $16$ open-weight models
 from five families, spanning $1.7$B to $405$B parameters, evaluated on five
 datasets. We then ask whether the blind spot is itself recognizable,
-fitting a third linear classifier to distinguish false from genuine agreement,
- testing it both within a dataset and on a dataset excluded from every stage
-of training.
+fitting a third linear classifier to distinguish false from genuine agreement
+and evaluating it on in-domain and out-of-domain data.
 %
 False agreement averages $2$--$25\%$ across datasets, and probe errors are
 positively correlated in $84$--$98\%$ of cells. We find that choosing a judge
