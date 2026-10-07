@@ -94,17 +94,59 @@ $10\%$ recovers $45$--$48\%$ of false agreements on Geometry of Truth, but only
 $9$--$20\%$ on the other four datasets. The signature is strong on curated
 factual statements and largely domain-specific elsewhere.
 
-Fitting and scoring the detector inside a single dataset separates this transfer
-failure from detectability itself. Under five-fold cross-validation over the
-held-out rows of one dataset, the mass-mean detector reaches a mean AUROC of
-$0.812$ over the $446$ cells with at least $20$ false agreements to score, and
-every one of them beats both chance and its own permutation control. The
-strongest operating point in the study is here: on Geometry of Truth, reviewing
-the top-ranked $10\%$ of the claims on which both probes say true recovers
-$77.5\%$ of the false agreements among them, against $48\%$ for the same budget
-under transfer. Detectability and transferability come apart: Geometry of Truth
-and IMDB are close in-domain ($0.926$ and $0.887$), but Geometry of Truth retains
-$96\%$ of its lift above chance under transfer while IMDB retains $33\%$.
+\subsection{Detectability and transferability are separate properties}
+\label{sec:indomain}
+
+The leave-one-dataset-out result conflates two questions: whether shared error
+leaves a linear signature at all, and whether that signature generalizes beyond
+the distribution it was fitted on. Fitting and scoring the detector inside a
+single dataset separates them. For each model pair and dataset we fit the
+probes on the dataset's training rows as before, then score the detector by
+five-fold cross-validation over the remaining rows, so that no claim is ranked
+by a direction that has seen it.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/fig5_indomain}
+\caption{Detection inside a dataset (filled) against the same dataset held out
+of every stage of fitting (hollow); the arrow is the transfer cost.
+\textbf{(A)} Ranking performance. \textbf{(B)} The fraction of false agreements
+recovered by reviewing the top-ranked $10\%$ of claims on which both probes say
+true. Cells with fewer than $20$ false agreements in the evaluated split are
+excluded. Geometry of Truth and RTE lose almost nothing in transfer; IMDB,
+BoolQ and TruthfulQA lose most of what they had. Mass-mean probes shown;
+logistic probes are uniformly weaker as detectors
+(Section~\ref{sec:indomain}).}
+\label{fig:indomain}
+\end{figure}
+
+The signature exists, and it is not marginal. Across the $446$ cells with at
+least $20$ false agreements to score, the mass-mean detector reaches a mean
+AUROC of $0.812$, and \emph{every one} of them beats both chance and its own
+permutation control. The strongest operating point in the study is here: on
+Geometry of Truth, reviewing the top-ranked $10\%$ of the claims on which both
+probes say true recovers $77.5\%$ of the false agreements among them.
+
+What varies across datasets is not whether the signature exists but whether it
+travels. Figure~\ref{fig:indomain} shows the two measurements together.
+Geometry of Truth and IMDB are close in-domain, at $0.926$ and $0.887$, yet
+Geometry of Truth retains $96\%$ of its lift above chance when the detector is
+fitted elsewhere while IMDB retains $33\%$ --- falling from $0.887$ to $0.628$,
+and from $54\%$ to $16\%$ of false agreements recovered at the same review
+budget. BoolQ and TruthfulQA behave like IMDB, retaining $27\%$ and $41\%$.
+Detectability and transferability are therefore distinct properties of a
+dataset, and a detector that works well where it was fitted is not evidence that
+it will work anywhere else.
+
+The two probe families separate here as they do under transfer, and in the same
+direction. Paired on the cells both can score, the logistic detector is
+$0.070$ AUROC below the mass-mean detector ($t=-7.1$), winning on $21\%$ of
+cells. The probe that reads belief more accurately is the weaker detector of
+shared error, in-domain and out of it. Part of this is mechanical: a more
+accurate probe produces fewer false agreements, so only $56\%$ of logistic cells
+clear the twenty-positive threshold against $73\%$ of mass-mean cells, and the
+positives that remain are the ones a good probe still misses. We report both
+probes rather than selecting the stronger one.
 
 \subsection{What an operator gets}
 

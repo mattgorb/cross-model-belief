@@ -1,0 +1,99 @@
+% Appendix: what the five datasets actually are, and how each was constructed.
+% Written out because two of the five are subsets or reformulations rather than
+% the benchmark a reader would assume from the name.
+\section{Datasets and methodology}
+\label{app:datasets}
+
+\subsection{The five datasets}
+
+Every dataset is reduced to a set of standalone declarative claims with a binary
+truth label, so that a single contrast pair can be built for each. Where the
+source is a question-answering or entailment task, the reformulation is stated
+below. Table~\ref{tab:datasets} summarizes the result.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrrl}
+\toprule
+Dataset & Source & Items & Median tokens & Claim form \\
+\midrule
+Geometry of Truth & \citet{marks2024geometry} & $5030$ & $11$ & curated statement \\
+TruthfulQA        & \citet{lin2022truthfulqa} & $1634$ & $22$ & question $+$ candidate answer \\
+RTE               & \citet{wang2018glue}      & $277$  & $58$ & premise $+$ hypothesis \\
+BoolQ             & \citet{clark2019boolq}    & $3270$ & $121$ & passage $+$ yes/no question \\
+IMDB              & \citet{maas2011imdb}      & $5000$ & $187$ & review $+$ sentiment claim \\
+\bottomrule
+\end{tabular}
+\caption{The five datasets after reduction to labelled claims. Token counts are
+GPT-2 tokens of the claim text, before the contrast-pair suffix is appended.
+IMDB is capped at $5000$ items, balanced across labels; the others are used in
+full.}
+\label{tab:datasets}
+\end{table}
+
+\paragraph{Geometry of Truth.}
+We use four of the fifteen topic files released with
+\citet{marks2024geometry}: \texttt{cities}, \texttt{sp\_en\_trans},
+\texttt{larger\_than} and \texttt{companies\_true\_false}, read from the
+authors' repository. These are short affirmative statements of a single fact,
+for example \emph{``The city of Krasnodar is in Russia.''} or \emph{``Fifty-one
+is larger than fifty-two.''}
+
+The eleven files we do not use include the negated counterparts of three of the
+four we do (\texttt{neg\_cities}, \texttt{neg\_sp\_en\_trans},
+\texttt{smaller\_than}), the logical compositions
+(\texttt{cities\_cities\_conj}, \texttt{cities\_cities\_disj}), and the
+uncurated sets (\texttt{common\_claim\_true\_false},
+\texttt{counterfact\_true\_false}). Our subset is therefore the affirmative,
+templated portion of the benchmark, which is reflected in its statistics: it has
+the shortest claims of the five datasets by a wide margin and the least
+variation in length.
+
+This matters for interpreting the results, because Geometry of Truth is the
+dataset on which detection is strongest and transfers best
+(Section~\ref{sec:indomain}). Whether that reflects the factual-recall content
+of the claims or their surface uniformity is not settled by the present
+experiments. Adding the negated files would separate the two, since they hold
+the same facts in a harder syntactic form, and we flag this as the most
+informative single extension to the data.
+
+\paragraph{TruthfulQA.}
+Each question is paired with one candidate answer to form a claim, labelled by
+whether that answer is among the correct ones. Questions are kept together under
+a shared group id so that a question's answers cannot be split across the train
+and test halves.
+
+\paragraph{RTE.}
+The premise and hypothesis are concatenated into a single claim, labelled by
+whether the premise entails the hypothesis. It is the smallest dataset at $277$
+items, which is why several of its cells fall below the thresholds used in
+Sections~\ref{sec:indomain} and the detection analysis.
+
+\paragraph{BoolQ.}
+The passage and its yes/no question are concatenated, labelled by the answer.
+Claims are long and highly variable in length.
+
+\paragraph{IMDB.}
+A review is paired with a claim about its sentiment, labelled by whether the
+claim matches the review's label. Capped at $5000$ items with equal numbers of
+each label; the other four datasets are used in full.
+
+\subsection{Splitting and group integrity}
+
+Every dataset is split once into train and test halves by a fixed seed, and the
+same split is reused by every model, so that a pair of models is always compared
+on identical items. Items sharing a group id --- the answers to one TruthfulQA
+question, for instance --- are assigned to the same half, so that a probe cannot
+be fitted on one answer to a question and scored on another. Truncation to a
+cap is stratified by label and respects groups.
+
+\subsection{Thresholds}
+
+False agreement is a rare event on some datasets, and a rate estimated from a
+handful of items is not informative. Two thresholds are therefore applied and
+stated wherever they affect a number. Cells with fewer than $20$ false
+agreements in the evaluated split are excluded from detection results; this
+removes $165$ of $611$ cells in the in-domain analysis, falling hardest on RTE,
+which retains $18$. No threshold is applied to the false-agreement rates
+themselves, which are averaged over all cells.

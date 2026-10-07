@@ -10,7 +10,8 @@
 %   sections/abstract.tex   the abstract
 %   sections/intro.tex      Section 1
 %   sections/related.tex    related work
-%   sections/appendix_logit.tex  appendix: the logit-distance test
+%   sections/appendix_datasets.tex appendix A: datasets and methodology
+%   sections/appendix_logit.tex    appendix B: the logit-distance test
 %   sections/theory.tex     Section 2: the bound on what agreement can catch
 %   sections/method.tex     Section 3: probes, detector, protocol, and data
 %   sections/results.tex    Section 5, with figures/ built by scripts/make_figures.py
@@ -75,5 +76,11 @@
 
 \bibliographystyle{tmlr}
 \bibliography{tmlr}
+
+% The appendices were written but never included, so neither appeared in a
+% build. Anything added to sections/ needs an \input here.
+\appendix
+\input{sections/appendix_datasets}
+\input{sections/appendix_logit}
 
 \end{document}

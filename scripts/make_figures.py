@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from figstyle import (GRAY, INK, INK2, NICE, ORDER, PROBES, SURFACE,
-                      load_base, load_loo, save, style)
+                      load_base, load_indomain, load_loo, save, style)
 from make_teaser import panel_bound, panel_diversity
 
 
@@ -123,14 +123,79 @@ def fig_pairs(loos):
     save(fig, "fig4_pairs")
 
 
+# --- 5. detectable in-domain, transferable only sometimes --------------------
+def fig_indomain(inds, loos, min_rows=20):
+    """What the detector achieves inside a dataset, and what survives transfer.
+
+    Drawn as an arrow from the in-domain score to the leave-one-dataset-out
+    score, because the two numbers only mean something together: a dataset can
+    be highly detectable and barely transferable (IMDB) or both (geometry of
+    truth), and reporting either alone hides which. The arrow's length is the
+    transfer cost.
+
+    Cells with fewer than `min_rows` false agreements are dropped: in-domain
+    evaluation of a rare event inside one dataset leaves many cells with too few
+    positives to score, and an AUROC over a handful of them is noise.
+    """
+    probes = [(n, c, k) for n, c, k in PROBES if k in inds]
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 3.2))
+    y = np.arange(len(ORDER))[::-1]
+    for i, (name, color, key) in enumerate(probes):
+        ind = inds[key]; loo = loos[key]
+        gi = (ind[ind.row2_test_n >= min_rows].groupby("held_out")
+              .agg(a=("direction_auroc", "mean"), r=("recall_10", "mean"))
+              .reindex(ORDER))
+        gl = (loo[loo.row2_test_n >= min_rows].groupby("held_out")
+              .agg(a=("direction_auroc", "mean"), r=("recall_10", "mean"))
+              .reindex(ORDER))
+        off = 0.16 if i == 0 else -0.16
+        for ax, col, scale in ((axes[0], "a", 1.0), (axes[1], "r", 100.0)):
+            for yi, hi, lo in zip(y + off, scale * gi[col], scale * gl[col]):
+                if not (np.isfinite(hi) and np.isfinite(lo)):
+                    continue
+                ax.annotate("", xy=(lo, yi), xytext=(hi, yi),
+                            arrowprops=dict(arrowstyle="-|>", color=GRAY,
+                                            linewidth=1.6, shrinkA=3, shrinkB=0))
+            ax.plot(scale * gi[col], y + off, "o", color=color, markersize=7,
+                    markeredgecolor=SURFACE, markeredgewidth=1.6,
+                    label=f"{name}: in-domain", zorder=3)
+            ax.plot(scale * gl[col], y + off, "o", color=color, markersize=6,
+                    markerfacecolor=SURFACE, markeredgecolor=color,
+                    markeredgewidth=1.8, label=f"{name}: transferred", zorder=3)
+    axes[0].axvline(0.5, color=INK2, linewidth=1, linestyle=(0, (3, 2)))
+    for ax, xlab, title in (
+            (axes[0], "AUROC", "A  Ranking performance"),
+            (axes[1], "false agreements recovered at a 10% budget",
+             "B  Operating point")):
+        ax.set_yticks(y, [NICE[d] for d in ORDER], fontsize=8.5, color=INK)
+        ax.set_ylim(-0.7, len(ORDER) - 0.15)
+        style(ax, xlab)
+        ax.set_title(title, fontsize=10.5, color=INK, loc="left", pad=10)
+    axes[1].xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    axes[0].legend(frameon=False, fontsize=7.5, labelcolor=INK2, ncol=2,
+                   loc="upper left", bbox_to_anchor=(0, -0.26),
+                   handletextpad=0.4)
+    fig.subplots_adjust(wspace=0.42)
+    save(fig, "fig5_indomain")
+
+
 def main() -> int:
     frames = {k: load_base(k) for _, _, k in PROBES}
     loos = {k: load_loo(k) for _, _, k in PROBES}
+    # the logistic in-domain sweep may still be running; draw what exists
+    inds = {}
+    for _, _, k in PROBES:
+        try:
+            inds[k] = load_indomain(k)
+        except FileNotFoundError:
+            print(f"  (no in-domain table for {k} yet, skipping it)")
     print("writing figures:")
     fig_bound(frames)
     fig_diversity(frames)
     fig_detect(loos)
     fig_pairs(loos)
+    if inds:
+        fig_indomain(inds, loos)
     return 0
 
 

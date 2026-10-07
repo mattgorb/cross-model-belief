@@ -96,7 +96,8 @@ no labels.
 Sixteen open-weight models spanning five families and $1.7$B to $405$B
 parameters give $571$ unique model-pair--dataset cells. We use five datasets:
 curated true/false statements \citep{marks2024geometry}, TruthfulQA
-\citep{lin2022truthfulqa}, BoolQ, RTE and IMDB. Activations are extracted in
+\citep{lin2022truthfulqa}, BoolQ \citep{clark2019boolq}, RTE
+\citep{wang2018glue} and IMDB \citep{maas2011imdb}. Activations are extracted in
 \texttt{fp16} and cached, so every analysis downstream is deterministic and needs
 no accelerator.
 
