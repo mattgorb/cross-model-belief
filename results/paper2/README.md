@@ -21,3 +21,13 @@ variants): identical except the map, so the pair is a clean A/B on the map alone
 Note `../sweep_base_all.csv` and `../pair_table.csv` stay in Paper 1's folder --
 they are Paper 1's main tables -- but their `cka`, `map_r2_*` and `transfer_*`
 columns belong to this paper and Paper 1 does not report them.
+
+## Figures
+
+| file | what |
+|---|---|
+| `figures/fig2_transport.pdf` | AUROC lost by reading each probe on the other model, by dataset, with the share of pairs inside a 0.05 tolerance |
+
+Built by `scripts/make_figures_paper2.py`. It was Paper 1's Figure 2 until the
+map was cut; `fig2_diversity` took that slot. Output goes here rather than to
+`paper/figures/` so a Paper 1 build cannot pick it up by accident.
