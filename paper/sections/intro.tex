@@ -17,16 +17,18 @@ the model being checked is wrong.
 \includegraphics[width=\textwidth]{figures/fig0_teaser}
 \caption{\textbf{What disagreement-based oversight cannot see.} The box is
 every false claim; each circle is the set one probe calls true, so its area is
-that probe's error rate. The four regions are the four outcomes, and all areas
-are to scale. Where exactly one probe is wrong (the crescents, $17\%$ and $4\%$
-within a family) the two readers disagree, and the claim can be routed for
-review. Where both are wrong (the lens, $12.5\%$) there is no disagreement to
-route and nothing flags it: this is \emph{false agreement}, and it is larger
-than either crescent. The rest, $67\%$, both probes get right.
-Choosing a judge from a different model family (right) does not shrink the
-lens --- $13.2\%$ against $12.5\%$, a difference indistinguishable from zero.
-It enlarges the circles instead, because cross-family pairs are the less
-accurate ones, leaving less of the box in the region both get right.}
+that probe's error rate. All four areas are to scale. Where exactly one probe
+is wrong (the crescents) the readers disagree and the claim can be routed for
+review; where both are wrong (the lens) there is no disagreement to route and
+nothing flags it. Within a family the lens is $12.5\%$, larger than either
+crescent alone, and the stronger probe's crescent is only $4.4\%$ --- almost
+everything it gets wrong, the weaker probe gets wrong too. Choosing a judge from
+a different family (right) does not shrink the lens, $13.2\%$ against $12.5\%$,
+a difference indistinguishable from zero; it enlarges the circles instead,
+because cross-family pairs are the less accurate ones. Averages over all $571$
+model-pair--dataset cells with logistic probes; the datasets differ widely
+behind this average, from $1.5\%$ false agreement on Geometry of Truth to
+$25.5\%$ on BoolQ (Section~\ref{sec:results}).}
 \label{fig:teaser}
 \end{figure}
 

@@ -29,6 +29,9 @@ from scipy.optimize import brentq
 from figstyle import BLUE, GRAY, INK, INK2, ORANGE, PROBES, SURFACE, load_base, save
 
 PROBE_KEY = "lr"          # headline probe; mass-mean gives the same picture
+# Box height; width is 1/H so the area stays 1. Tall enough for the widest
+# circle, no taller -- the margin above and below the circles is not data.
+BOX_H = 0.70
 
 
 def lens_area(d, r1, r2):
@@ -85,12 +88,18 @@ def venn(ax, p1, p2, fa, title, subtitle, lim):
     """
     r1, r2 = np.sqrt(p1 / np.pi), np.sqrt(p2 / np.pi)
     d = centre_distance(r1, r2, fa)
-    # centre the pair in the unit box
+    # The box has area 1 but is drawn wide rather than square. A square box is
+    # mostly empty, because the circles only reach across its middle, and the
+    # empty margin is not data -- the "both right" area is the same either way.
+    # A wide box of the same area keeps every proportion exact and removes the
+    # whitespace above and below the circles.
+    H = BOX_H
+    W = 1.0 / H
     span = d + r1 + r2
-    cx = 0.5 - span / 2 + r1
-    c1, c2 = (cx, 0.5), (cx + d, 0.5)
+    cx = W / 2 - span / 2 + r1
+    c1, c2 = (cx, H / 2), (cx + d, H / 2)
 
-    ax.add_patch(Rectangle((0, 0), 1, 1, facecolor="white",
+    ax.add_patch(Rectangle((0, 0), W, H, facecolor="white",
                            edgecolor=GRAY, linewidth=1.0, zorder=1))
     for (x, y), r, col in ((c1, r1, BLUE), (c2, r2, ORANGE)):
         ax.add_patch(Circle((x, y), r, facecolor=col, alpha=0.30,
@@ -104,25 +113,25 @@ def venn(ax, p1, p2, fa, title, subtitle, lim):
     # the lens is wide enough that a label placed at a circle's centre lands on
     # top of the lens label
     left, right = c2[0] - r2, c1[0] + r1          # the lens spans these
-    ax.annotate(f"both wrong\n{fa:.0%}", ((left + right) / 2, 0.5),
+    ax.annotate(f"both wrong\n{fa:.0%}", ((left + right) / 2, H / 2),
                 ha="center", va="center", fontsize=8.5, color="white",
                 fontweight="bold", zorder=5)
     ax.annotate(f"only the weaker\nprobe wrong\n{p1 - fa:.0%}",
-                (((c1[0] - r1) + left) / 2, 0.5), ha="center", va="center",
+                (((c1[0] - r1) + left) / 2, H / 2), ha="center", va="center",
                 fontsize=7.5, color=INK, zorder=5)
     ax.annotate(f"only the stronger\nprobe wrong\n{p2 - fa:.0%}",
-                ((right + (c2[0] + r2)) / 2 + 0.10, 0.5 + r2 * 1.05),
-                ha="center", va="center", fontsize=7.5, color=INK, zorder=5)
-    ax.annotate(f"both right\n{both_right:.0%}", (0.5, 0.075), ha="center",
-                va="center", fontsize=8, color=INK2, zorder=5)
-    ax.annotate("every false claim", (0.012, 0.975), ha="left", va="top",
+                (c2[0] + r2 + 0.14, H / 2), ha="left", va="center",
+                fontsize=7.5, color=INK, zorder=5)
+    ax.annotate(f"both right  {both_right:.0%}", (W - 0.02, 0.025),
+                ha="right", va="bottom", fontsize=8, color=INK2, zorder=5)
+    ax.annotate("every false claim", (0.015, H - 0.02), ha="left", va="top",
                 fontsize=7, color=GRAY, zorder=5)
 
-    ax.set_xlim(-0.06, 1.06); ax.set_ylim(-0.06, 1.06)
+    ax.set_xlim(-0.02, W + 0.02); ax.set_ylim(-0.02, H + 0.02)
     ax.set_aspect("equal"); ax.axis("off"); ax.set_facecolor(SURFACE)
     ax.set_title(title, fontsize=10.5, color=INK, pad=6)
-    ax.annotate(subtitle, (0.5, -0.055), xycoords="axes fraction", ha="center",
-                fontsize=8, color=INK2)
+    ax.annotate(subtitle, (0.5, -0.10), xycoords="axes fraction", ha="center",
+                fontsize=7.5, color=INK2)
 
 
 def main() -> int:
@@ -131,19 +140,19 @@ def main() -> int:
     groups = {f: df[df.family == f] for f in ("same", "cross")}
     # the unit box is the common scale, so no shared limit has to be computed
     lim = 1.0
-    fig, axes = plt.subplots(1, 2, figsize=(9.8, 4.0))
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 2.9))
     for ax, fam, title in ((axes[0], "same", "Judge from the same model family"),
                            (axes[1], "cross", "Judge from a different family")):
         d = groups[fam]
         venn(ax, *rates(d), title, f"{len(d)} pair--dataset cells", lim)
     fig.suptitle("Only disagreement is visible. The overlap is not.",
-                 fontsize=12, color=INK, y=1.02)
-    fig.text(0.5, -0.07,
+                 fontsize=12, color=INK, y=1.04)
+    fig.text(0.5, -0.06,
              "The box is every false claim; circle areas are the share each probe "
              "calls true, and the overlap is false agreement, which no "
              f"disagreement flags. All areas to scale, {name} probes.",
              ha="center", fontsize=8, color=INK2)
-    fig.subplots_adjust(wspace=0.08)
+    fig.subplots_adjust(wspace=0.10)
     print("writing teaser:")
     save(fig, "fig0_teaser")
     return 0
