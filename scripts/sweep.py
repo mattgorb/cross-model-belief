@@ -358,14 +358,7 @@ def loo_row(ov, tg, held, pool):
     row["shuffled_auroc"] = float(np.mean(shuf))
     row["shuffled_sd"] = float(np.std(shuf))
     row["margin"] = row["direction_auroc"] - row["shuffled_auroc"]
-    order = np.argsort(-score)
-    for b in BUDGETS:
-        k = max(1, int(round(b * len(score))))
-        hits = int(yh[order[:k]].sum())
-        tag = f"{int(b * 100):02d}"
-        row[f"prec_{tag}"] = hits / k
-        row[f"recall_{tag}"] = hits / max(int(yh.sum()), 1)
-        row[f"caught_{tag}"] = (router + hits) / max(n_false, 1)
+    row.update(operating_points(score, yh, n_false, router))
     return row
 
 
@@ -420,12 +413,111 @@ def append(path, cols, row):
         w.writerow({c: row.get(c, "") for c in cols})
 
 
+def operating_points(score, yh, n_false, router):
+    """Precision / recall / caught at each review budget.
+
+    Shared by the LOO and in-domain phases so the two are directly comparable:
+    the only difference between them should be which rows the direction was
+    fitted on, not how the operating points are computed.
+
+    `caught` includes the items the two probes already disagreed on (`router`),
+    because those are flagged without any detector. `recall` is the detector's
+    own contribution. Reporting only `caught` overstates what the direction adds.
+    """
+    out = {}
+    order = np.argsort(-score)
+    for b in BUDGETS:
+        k = max(1, int(round(b * len(score))))
+        hits = int(yh[order[:k]].sum())
+        tag = f"{int(b * 100):02d}"
+        out[f"prec_{tag}"] = hits / k
+        out[f"recall_{tag}"] = hits / max(int(yh.sum()), 1)
+        out[f"caught_{tag}"] = (router + hits) / max(n_false, 1)
+    return out
+
+
+def indomain_row(ov, tg, ds, folds: int = 5):
+    """Detection within a single dataset: the upper bound on detectability.
+
+    The LOO phase asks whether the false-agreement direction transfers to a
+    dataset it never saw. That conflates two questions -- is the blind spot
+    linearly detectable at all, and does the direction generalise across domains
+    -- and this phase separates them by fitting and scoring inside one dataset.
+
+    Scored by k-fold cross-validation over the dataset's held-out rows, not by a
+    single split. A 50/50 split left as few as ten positive examples to fit a
+    direction in an 8k-32k dimensional space, and the resulting AUROC measured
+    sample size rather than detectability (geometry_of_truth came out at 0.49
+    in-domain against 0.86 out-of-domain, which is backwards). Cross-validation
+    fits on 80% and scores every item out-of-fold, so the fit is as large as the
+    data allows and nothing is scored by a direction that saw it.
+
+    Low-false-agreement datasets stay underpowered even so -- there are only so
+    many both-agree-and-false items in one dataset -- so `row2_fit_n` is reported
+    alongside and a cell with few positives should not be read as a null result.
+    """
+    pa, rate_a = _pooled_probe(ov, [ds])
+    pb, rate_b = _pooled_probe(tg, [ds])
+    A, B = get(ov, ds), get(tg, ds)
+
+    idx = np.where(~A["tr"])[0]
+    v1 = calibrated_vote(pa, A["pos"][idx], A["neg"][idx], rate_a)
+    v2 = calibrated_vote(pb, B["pos"][idx], B["neg"][idx], rate_b)
+    both = metrics.both_true_mask(v1, v2)
+    sel = np.zeros(len(A["labels"]), bool)
+    sel[idx[both]] = True
+    X = aligned(A, B, sel, None)                  # no map: Paper 1 never uses one
+    y = (A["labels"][idx][both] == 0).astype(int)
+
+    gt = A["labels"][idx]
+    n_false = int((gt == 0).sum())
+    router = int(((gt == 0) & (v1 != v2)).sum())
+    row = {"overseer": ov, "target": tg, "held_out": ds, "n_pool_datasets": 1,
+           "row2_fit_n": int(y.sum()), "both_true_test_n": int(both.sum()),
+           "row2_test_n": int(y.sum()),
+           "base_rate": float(y.mean()) if len(y) else float("nan"),
+           "router_coverage": router / max(n_false, 1), "n_false": n_false,
+           "pos_rate_overseer": rate_a, "pos_rate_target": rate_b}
+    if len(np.unique(y)) < 2 or int(y.sum()) < folds:
+        row.update({c: float("nan") for c in LOO_COLS if c not in row})
+        return row
+
+    rng = np.random.default_rng(SEED)
+    order = rng.permutation(len(y))
+    fold_of = np.empty(len(y), int)
+    fold_of[order] = np.arange(len(y)) % folds
+
+    def cv_scores(labels):
+        out = np.empty(len(labels), float)
+        for f in range(folds):
+            tr, te = fold_of != f, fold_of == f
+            if len(np.unique(labels[tr])) < 2:
+                out[te] = 0.0
+                continue
+            out[te] = LinearDirection.fit(X[tr], labels[tr]).score(X[te])
+        return out
+
+    score = cv_scores(y)
+    row["direction_auroc"] = metrics.auroc(score, y)
+    shuf = []
+    for _ in range(SHUFFLES):
+        yp = rng.permutation(y)
+        shuf.append(metrics.auroc(cv_scores(yp), yp))
+    row["shuffled_auroc"] = float(np.mean(shuf))
+    row["shuffled_sd"] = float(np.std(shuf))
+    row["margin"] = row["direction_auroc"] - row["shuffled_auroc"]
+    row.update(operating_points(score, y, n_false, router))
+    return row
+
+
 def run(pairs, phase, tag="", only_folds=()):
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     bpath = RESULTS_DIR / f"sweep_base{tag}.csv"
     lpath = RESULTS_DIR / f"sweep_loo{tag}.csv"
+    ipath = RESULTS_DIR / f"sweep_indomain{tag}.csv"
     bdone = done_rows(bpath, ("overseer", "target", "dataset"))
     ldone = done_rows(lpath, ("overseer", "target", "held_out"))
+    idone = done_rows(ipath, ("overseer", "target", "held_out"))
 
     for i, (ov, tg, dss) in enumerate(pairs):
         t0 = time.time()
@@ -450,6 +542,15 @@ def run(pairs, phase, tag="", only_folds=()):
                 except Exception as e:
                     print(f"  FAIL loo {ov}->{tg}/{held}: {type(e).__name__}: {e}",
                           flush=True)
+        if phase in ("indomain", "all"):
+            for ds in (only_folds or dss):
+                if (ov, tg, ds) in idone or ds not in dss:
+                    continue
+                try:
+                    append(ipath, LOO_COLS, indomain_row(ov, tg, ds))
+                except Exception as e:
+                    print(f"  FAIL indomain {ov}->{tg}/{ds}: "
+                          f"{type(e).__name__}: {e}", flush=True)
         _cache.clear()
         print(f"[{i + 1}/{len(pairs)}] {ov} -> {tg}  "
               f"{time.time() - t0:.0f}s", flush=True)
@@ -458,7 +559,8 @@ def run(pairs, phase, tag="", only_folds=()):
 def main() -> int:
     global ALL_DIRECTIONS
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--phase", default="all", choices=["base", "loo", "all"])
+    ap.add_argument("--phase", default="all",
+                    choices=["base", "loo", "indomain", "all"])
     ap.add_argument("--pairs", default="", help="slice, e.g. 0:10")
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--tag", default="")

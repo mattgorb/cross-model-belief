@@ -41,3 +41,7 @@ infra/terraform.tfvars
 # paper builds for anyone without re-running the pipeline
 !paper/figures/*.pdf
 activations_ndif/
+
+# transient sweep shard files -- merged into their parent then deleted
+results/*_s[0-9].csv
+results/paper2/*_s[0-9].csv
