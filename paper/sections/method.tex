@@ -72,6 +72,60 @@ spread. A margin smaller than that spread is not evidence. An
 \textbf{output-confidence baseline} asks whether the activation space is needed
 at all.
 
+\subsection{Label-free alternatives to the third stage}
+\label{sec:method:unsup}
+
+The direction of Section~\ref{sec:method:direction} is fitted on labels: it needs
+to know which of the agreed-upon claims were false. Where those labels come from
+decides what the method can claim.
+
+Three situations should be kept apart. A detector fitted and scored on the same
+dataset needs labels \emph{on the distribution being overseen} --- which, in the
+setting that motivates this work, is precisely what is unavailable: if the claims
+could be checked, the oversight problem would not arise. The
+leave-one-dataset-out protocol removes that requirement, fitting the direction on
+other datasets and applying it to an unlabelled target; labels are still needed,
+but elsewhere. The third situation needs none at all, and is the subject of this
+section.
+
+The first two stages remain supervised throughout. Each model's probe is fitted
+once, on whatever labelled data is available, and that cost is paid once per
+model rather than once per deployment. The question here is only whether the
+\emph{third} stage can be had for free, given two probes that already exist.
+
+We consider three scores. None is fitted on labels; labels are used only to
+compute the reported AUROC afterwards.
+
+\begin{itemize}
+\itemsep0em
+\item \textbf{Margin.} How weakly the more hesitant of the two probes agreed:
+  $-\min(|b_1 - \tfrac12|,\, |b_2 - \tfrac12|)$, where $b_i$ is probe $i$'s
+  belief. This requires no fitting of any kind --- it is arithmetic on the two
+  probes' own outputs, so a system that has the probes already has this score.
+  It tests whether agreement reached near the decision boundary is less
+  trustworthy than confident agreement.
+\item \textbf{Anomaly.} Mahalanobis distance from the centre of the
+  both-agree pool, in a basis of its top $32$ principal components. The
+  projection and covariance are estimated on the unlabelled pool itself. It
+  tests whether shared mistakes occupy unusual regions of the joint
+  representation rather than typical ones. Unlike the margin, this reads the
+  activations of both models, not only the probes' scalar outputs.
+\item \textbf{Spread.} The gap between the two probes' beliefs,
+  $|b_1 - b_2|$, among claims where both nonetheless say true. It tests whether
+  residual disagreement inside an agreement carries a warning.
+\end{itemize}
+
+We do not use CCS here. Its objective is defined over a claim and its negation,
+and the quantity to be separated at this stage is not a claim's truth but
+whether an \emph{agreement} is mistaken; constructing the corresponding
+contrastive pair would require a second extraction over prompts about the
+agreement itself, which we do not have. CCS appears in this paper only as an
+alternative for the first two stages (Section~\ref{sec:method:probe}).
+
+A caveat on reporting. Choosing the best of the three scores per cell would
+itself consume labels, so that quantity is an upper bound rather than a method,
+and we report each score separately.
+
 \subsection{Protocol}
 \label{sec:method:protocol}
 
