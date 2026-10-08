@@ -18,8 +18,14 @@ The unsupervised probe does not survive this test. CCS reads truth on curated
 factual statements at $0.99$ AUROC and fails on adversarial misconceptions,
 scoring below the confidence baseline on the confident slice. This reproduces
 the failure mode \citet{farquhar2024challenges} predict. All results below therefore
-use a supervised probe, and the oversight claim is correspondingly ``fit once,
-deploy without labels'' rather than label-free.
+use a supervised probe. Both stages of the method are fitted on labelled data:
+the probes on each model's training split, and the false-agreement direction on
+the pooled false agreements of the training datasets. What the
+leave-one-dataset-out protocol establishes is therefore supervised transfer to
+an \emph{unlabelled target distribution} --- no labels are needed from the
+dataset being overseen, and target labels are used only to score the result
+afterwards. The oversight claim is ``fit once on labelled data, deploy on
+unlabelled data'', not label-free detection.
 
 \subsection{False agreement, and where it sits inside its bound}
 
