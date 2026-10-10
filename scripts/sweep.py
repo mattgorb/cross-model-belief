@@ -69,6 +69,11 @@ USE_MAP_FOR_FEATURES = True
 # False -> only overseer <= target (the default). True -> every ordered pair,
 # so a large model overseeing a small one is included too.
 ALL_DIRECTIONS = False
+# Fraction of model depth to read the probe from. 1.0 is the final layer, which
+# is all the remote models have; 0.5 and 0.75 exist for the locally extracted
+# ones. Truth directions are often reported as strongest in middle layers, so
+# this is worth sweeping rather than assuming.
+LAYER_DEPTH = 1.0
 
 SIZE = {"qwen3-1.7b": 1.7, "olmo3-7b": 7, "qwen3-8b": 8, "qwen3-8b-base": 8,
         "llama-8b": 8, "gemma4-12b": 12, "gemma4-12b-base": 12,
@@ -112,8 +117,18 @@ def slim_load(path, pooling="mean"):
     """
     z = np.load(path, allow_pickle=True)
     pre, npre = ("pos", "neg") if pooling == "mean" else ("posalt", "negalt")
-    L = max(int(k[len(pre) + 2:]) for k in z.files if k.startswith(pre + "_l"))
-    out = {"pos": z[f"{pre}_l{L}"], "neg": z[f"{npre}_l{L}"],
+    have = sorted(int(k[len(pre) + 2:]) for k in z.files if k.startswith(pre + "_l"))
+    # LAYER_DEPTH is a fraction of model depth, not an index: the models differ
+    # in depth (28 to 126 blocks), so a fixed index would read a different
+    # relative position in each. The remote models hold only the final layer, so
+    # asking for an earlier one silently falls back to the deepest they have --
+    # which would quietly mix depths across a pair. `--layer` therefore refuses
+    # to run with those models rather than guessing (see `check_layers`).
+    n_layers = int(z["n_layers"])
+    want = LAYER_DEPTH * n_layers
+    L = min(have, key=lambda x: abs(x - want))
+    out = {"pos": z[f"{pre}_l{L}"], "neg": z[f"{npre}_l{L}"], "layer": L,
+           "n_layers": n_layers,
            "labels": z["labels"], "p_yes": z["p_yes"],
            "ids": [str(x) for x in z["item_ids"]]}
     z.close()
@@ -364,6 +379,36 @@ def loo_row(ov, tg, held, pool):
 
 # ------------------------------------------------------------------- the sweep
 
+def check_layers(pairs):
+    """Drop any pair whose models cannot both supply the requested depth.
+
+    A model that holds only its final layer would otherwise be read at depth 1.0
+    while its partner is read at 0.5, and the pair would silently compare two
+    different positions in the two networks.
+    """
+    if LAYER_DEPTH >= 0.999:
+        return pairs
+    ok, dropped = [], set()
+    for a, b, dss in pairs:
+        bad = [m for m in (a, b) if len(_depths(m, dss[0])) < 2]
+        if bad:
+            dropped.update(bad)
+            continue
+        ok.append((a, b, dss))
+    if dropped:
+        print(f"  --layer {LAYER_DEPTH}: skipping {len(pairs) - len(ok)} pairs "
+              f"involving {len(dropped)} models with only a final layer "
+              f"({', '.join(sorted(dropped))})", flush=True)
+    return ok
+
+
+def _depths(model, ds):
+    z = np.load(cache_path(model, ds, None), allow_pickle=True)
+    out = sorted(int(k[5:]) for k in z.files if k.startswith("pos_l"))
+    z.close()
+    return out
+
+
 def all_pairs():
     # Models live across the cache search path -- locally extracted ones in
     # activations_cache, NDIF ones in activations_ndif -- and the sweep treats
@@ -510,14 +555,103 @@ def indomain_row(ov, tg, ds, folds: int = 5):
     return row
 
 
+UNSUP_COLS = (["overseer", "target", "held_out", "both_true_test_n",
+               "row2_test_n", "base_rate", "n_false", "router_coverage",
+               "auroc_margin", "auroc_anomaly", "auroc_spread", "auroc_best"]
+              # every budget for every score: a detector is judged at the budget
+              # an operator would actually spend, and that is not always 10%
+              + [f"{m}_{int(b * 100):02d}_{sc}"
+                 for sc in ("margin", "anomaly", "spread", "best")
+                 for b in BUDGETS for m in ("prec", "recall", "caught")]
+              + ["supervised_reference"])
+
+
+def unsup_row(ov, tg, ds):
+    """Label-free ranking of the both-agree claims, scored against the labels.
+
+    The supervised detector needs ground-truth false agreements on the
+    distribution being overseen, which is exactly what a deployment does not
+    have. These scores need none: each is computed from the two probes' own
+    outputs or from the geometry of the unlabelled both-agree pool. Labels enter
+    only to compute the AUROC afterwards.
+
+    Three scores, because they encode different guesses about what a shared
+    mistake looks like:
+
+    `margin`   how weakly the more hesitant probe says true. If agreement near
+               the decision boundary is less trustworthy, this ranks well.
+    `anomaly`  Mahalanobis distance from the centre of the both-agree pool, in a
+               PCA basis fitted on that pool. If shared mistakes are unusual
+               states rather than typical ones, this ranks well.
+    `spread`   how far apart the two probes' beliefs are, even though both say
+               true. Residual disagreement inside an agreement.
+
+    `auroc_best` is the best of the three *per cell*, which is optimistic --
+    choosing it needs labels -- and is reported as an upper bound, not a method.
+    """
+    pa, rate_a = _pooled_probe(ov, [ds])
+    pb, rate_b = _pooled_probe(tg, [ds])
+    A, B = get(ov, ds), get(tg, ds)
+
+    idx = np.where(~A["tr"])[0]
+    ba = pa.belief(A["pos"][idx], A["neg"][idx])
+    bb = pb.belief(B["pos"][idx], B["neg"][idx])
+    v1 = calibrated_vote(pa, A["pos"][idx], A["neg"][idx], rate_a)
+    v2 = calibrated_vote(pb, B["pos"][idx], B["neg"][idx], rate_b)
+    both = metrics.both_true_mask(v1, v2)
+    sel = np.zeros(len(A["labels"]), bool)
+    sel[idx[both]] = True
+
+    gt = A["labels"][idx]
+    y = (gt[both] == 0).astype(int)
+    n_false = int((gt == 0).sum())
+    router = int(((gt == 0) & (v1 != v2)).sum())
+    row = {"overseer": ov, "target": tg, "held_out": ds,
+           "both_true_test_n": int(both.sum()), "row2_test_n": int(y.sum()),
+           "base_rate": float(y.mean()) if len(y) else float("nan"),
+           "n_false": n_false, "router_coverage": router / max(n_false, 1)}
+    if len(np.unique(y)) < 2 or int(y.sum()) < 5:
+        row.update({c: float("nan") for c in UNSUP_COLS if c not in row})
+        return row
+
+    # score 1: the more hesitant probe's distance from its own threshold
+    margin = -np.minimum(np.abs(ba[both] - 0.5), np.abs(bb[both] - 0.5))
+    # score 3: residual disagreement inside the agreement
+    spread = np.abs(ba[both] - bb[both])
+    # score 2: Mahalanobis distance in a PCA basis of the unlabelled pool
+    X = aligned(A, B, sel, None).astype(np.float64)
+    Xc = X - X.mean(0)
+    k = int(min(32, min(Xc.shape) - 1))
+    if k >= 2:
+        _, sv, vt = np.linalg.svd(Xc, full_matrices=False)
+        comp = (Xc @ vt[:k].T) / (sv[:k] / np.sqrt(max(len(Xc) - 1, 1)) + 1e-9)
+        anomaly = np.sqrt((comp ** 2).sum(1))
+    else:
+        anomaly = np.zeros(len(y))
+
+    scores = {"margin": margin, "anomaly": anomaly, "spread": spread}
+    aurocs = {k2: metrics.auroc(v, y) for k2, v in scores.items()}
+    for k2, v in aurocs.items():
+        row[f"auroc_{k2}"] = v
+    best = max(aurocs, key=lambda k2: aurocs[k2])
+    row["auroc_best"] = aurocs[best]
+    for tag, sc in list(scores.items()) + [("best", scores[best])]:
+        for k3, v in operating_points(sc, y, n_false, router).items():
+            row[f"{k3}_{tag}"] = v
+    row["supervised_reference"] = best
+    return row
+
+
 def run(pairs, phase, tag="", only_folds=()):
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     bpath = RESULTS_DIR / f"sweep_base{tag}.csv"
     lpath = RESULTS_DIR / f"sweep_loo{tag}.csv"
     ipath = RESULTS_DIR / f"sweep_indomain{tag}.csv"
+    upath = RESULTS_DIR / f"sweep_unsup{tag}.csv"
     bdone = done_rows(bpath, ("overseer", "target", "dataset"))
     ldone = done_rows(lpath, ("overseer", "target", "held_out"))
     idone = done_rows(ipath, ("overseer", "target", "held_out"))
+    udone = done_rows(upath, ("overseer", "target", "held_out"))
 
     for i, (ov, tg, dss) in enumerate(pairs):
         t0 = time.time()
@@ -551,21 +685,34 @@ def run(pairs, phase, tag="", only_folds=()):
                 except Exception as e:
                     print(f"  FAIL indomain {ov}->{tg}/{ds}: "
                           f"{type(e).__name__}: {e}", flush=True)
+        if phase in ("unsup", "all"):
+            for ds in (only_folds or dss):
+                if (ov, tg, ds) in udone or ds not in dss:
+                    continue
+                try:
+                    append(upath, UNSUP_COLS, unsup_row(ov, tg, ds))
+                except Exception as e:
+                    print(f"  FAIL unsup {ov}->{tg}/{ds}: "
+                          f"{type(e).__name__}: {e}", flush=True)
         _cache.clear()
         print(f"[{i + 1}/{len(pairs)}] {ov} -> {tg}  "
               f"{time.time() - t0:.0f}s", flush=True)
 
 
 def main() -> int:
-    global ALL_DIRECTIONS
+    global ALL_DIRECTIONS, LAYER_DEPTH
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--phase", default="all",
-                    choices=["base", "loo", "indomain", "all"])
+                    choices=["base", "loo", "indomain", "unsup", "all"])
     ap.add_argument("--pairs", default="", help="slice, e.g. 0:10")
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--tag", default="")
     ap.add_argument("--probe", default="mass-mean",
                     choices=["mass-mean", "lr", "ccs"])
+    ap.add_argument("--layer", type=float, default=1.0,
+                    help="fraction of model depth to probe (1.0 final, 0.75, "
+                         "0.5). Only the locally extracted models hold anything "
+                         "but the final layer.")
     ap.add_argument("--all-directions", action="store_true",
                     help="also pair a large overseer with a small target, "
                          "lifting the scalable-oversight size filter")
@@ -579,6 +726,7 @@ def main() -> int:
     args = ap.parse_args()
     if args.all_directions:
         ALL_DIRECTIONS = True
+    LAYER_DEPTH = args.layer
     global PROBE, USE_MAP_FOR_FEATURES
     PROBE = args.probe
     USE_MAP_FOR_FEATURES = not args.no_map_features
@@ -587,6 +735,7 @@ def main() -> int:
     if args.pairs:
         lo, hi = (int(x) if x else None for x in args.pairs.split(":"))
         pairs = pairs[lo:hi]
+    pairs = check_layers(pairs)
     folds = tuple(d.strip() for d in args.held_out.split(",") if d.strip())
     print(f"{len(pairs)} ordered pairs, phase={args.phase}, "
           f"workers={args.workers}, folds={folds or 'all'}", flush=True)
