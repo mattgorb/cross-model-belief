@@ -178,6 +178,119 @@ logistic probes and $40\%$ with mass-mean probes. Most of the operational value
 comes from disagreement; the detector prioritizes part of the residual blind
 spot.
 
+\subsection{What the supervised detector adds over a free alternative}
+\label{sec:results:unsup}
+
+The detector of Section~\ref{sec:method:direction} is fitted on labelled false
+agreements. Section~\ref{sec:method:unsup} describes three scores that are not,
+and comparing them bounds what the labels buy.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrrrr}
+\toprule
+& & \multicolumn{2}{c}{mass-mean probes} & \multicolumn{2}{c}{logistic probes} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+Method & Labels needed & AUROC & $>$ chance & AUROC & $>$ chance \\
+\midrule
+Supervised, fitted in-domain   & on the target     & $0.810$ & $100\%$ & $0.705$ & $96\%$ \\
+Supervised, transferred        & other datasets    & $0.656$ & --      & $0.523$ & --     \\
+\addlinespace
+Label-free: margin             & none              & $0.674$ & $97\%$  & $\mathbf{0.780}$ & $99\%$ \\
+Label-free: anomaly            & none              & $0.595$ & $61\%$  & $0.554$ & $53\%$ \\
+Label-free: spread             & none              & $0.478$ & $39\%$  & $0.498$ & $47\%$ \\
+\bottomrule
+\end{tabular}
+\caption{Detection AUROC by how the ranking is obtained, on the cells all
+methods can score ($435$ for mass-mean, $330$ for logistic). ``$>$ chance'' is
+the share of individual cells above $0.5$, which separates a score that works
+everywhere weakly from one carried by a few datasets.}
+\label{tab:unsup}
+\end{table}
+
+Two of the three label-free scores can be dismissed. \emph{Spread}, the gap
+between the two probes' beliefs among claims where both say true, is at chance
+($0.478$ and $0.498$) and below it in most cells: residual disagreement inside
+an agreement carries no warning, which is worth recording because it is the
+intuitive thing to try. \emph{Anomaly} is better than chance on average but
+only in $61\%$ and $53\%$ of cells, and its aggregate is carried by one dataset
+--- $0.855$ on Geometry of Truth against chance on IMDB and BoolQ. Unusualness
+in the joint representation is not a general signal.
+
+The \emph{margin} is a different matter. It beats chance in $97\%$ and $99\%$ of
+cells, nearly as reliably as the supervised detector, and with logistic probes
+it reaches $0.780$ --- above the supervised detector fitted on the same cells
+with labels ($0.705$), and far above the same detector transferred from other
+datasets ($0.523$). With mass-mean probes the ordering reverses and the
+supervised detector wins by $0.136$. The two probes therefore disagree about
+which method is better, and we report both rather than selecting.
+
+The disagreement is interpretable. A logistic probe is a fitted classifier, so
+its distance from its own decision boundary is a calibrated quantity; a
+mass-mean probe is a difference of class centroids, and its belief is an
+uncalibrated projection whose magnitude carries less. What does not change
+across probes is the comparison that matters for deployment: the best label-free
+configuration ($0.780$) is within $0.033$ of the best supervised one ($0.810$),
+while a supervised detector transferred from other datasets is worse than either
+($0.523$--$0.656$). At a $10\%$ review budget the margin reaches precision
+$0.331$ against a base rate of $0.120$, so even the free ranking surfaces false
+agreements at nearly three times the rate of random review.
+
+Labels, in other words, are worth something only when they describe the
+distribution being overseen. Labels gathered elsewhere do not transfer well
+enough to beat a score that needs none --- and the distribution being overseen
+is exactly the one the oversight problem assumes cannot be labelled.
+
+\subsection{Probe depth}
+\label{sec:results:depth}
+
+Every result above reads the final layer. Truth directions are often reported as
+strongest in middle layers, so we repeat the measurements at $0.5$ and $0.75$ of
+model depth. Only the ten locally extracted models hold more than a final layer,
+so this covers $49$ pairs rather than $128$, and a pair is dropped rather than
+read at two different depths.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrrr}
+\toprule
+Measurement & Probe & $d=0.50$ & $d=0.75$ & $d=1.00$ \\
+\midrule
+In-domain detection & mass-mean & $0.829$ & $0.817$ & $0.795$ \\
+                    & logistic  & $0.712$ & $0.731$ & $0.697$ \\
+\addlinespace
+Transfer (LOO)      & mass-mean & $0.635$ & $0.700$ & $0.682$ \\
+                    & logistic  & $0.571$ & $0.599$ & $0.593$ \\
+\addlinespace
+Label-free margin   & mass-mean & $0.621$ & $0.683$ & $0.683$ \\
+                    & logistic  & $0.745$ & $0.786$ & $0.778$ \\
+\bottomrule
+\end{tabular}
+\caption{Detection AUROC by probe depth, paired per cell against the final
+layer on the models that hold all three depths. Each column is restricted to the
+cells its own comparison can score, so rows are not directly comparable across
+depths without the paired differences quoted in the text.}
+\label{tab:depth}
+\end{table}
+
+Depth $0.75$ is better than the final layer, modestly and not everywhere. The
+supervised detector gains $0.023$ (mass-mean, $t=5.5$) and $0.034$ (logistic,
+$t=5.2$) in-domain, and mass-mean gains $0.018$ on transfer ($t=3.8$). The
+label-free margin gains almost nothing: $+0.001$ for mass-mean and $+0.008$ for
+logistic. Depth $0.50$ is worse than the final layer on transfer and on the
+label-free score for both probes, so this is a shallow optimum just before the
+output rather than a general preference for middle layers.
+
+The gain also costs something. Mass-mean false agreement rises from $0.122$ at
+the final layer to $0.144$ at $0.75$ ($t=4.0$): the blind spot is larger there
+and the detector is better at finding it. That trade-off has now appeared three
+times --- with CCS probes, with base models, and with earlier layers. In each
+case a weaker readout produces more shared error, and the shared error it
+produces is more systematic and therefore easier to rank. It is a property of
+the problem rather than of any one estimator.
+
 \subsection{CCS on base models: a larger, still detectable blind spot}
 
 CCS does not reliably read truth on base models: its belief AUROC is only
