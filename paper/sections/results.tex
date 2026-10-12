@@ -18,9 +18,11 @@ The unsupervised probe does not survive this test. CCS reads truth on curated
 factual statements at $0.99$ AUROC and fails on adversarial misconceptions,
 scoring below the confidence baseline on the confident slice. This reproduces
 the failure mode \citet{farquhar2024challenges} predict. All results below therefore
-use a supervised probe. Both stages of the method are fitted on labelled data:
-the probes on each model's training split, and the false-agreement direction on
-the pooled false agreements of the training datasets. What the
+use a supervised probe in the primary analysis. A separate CCS base-model
+stress test appears below; it uses an unsupervised belief probe but retains a
+supervised false-agreement detector. In the primary pipeline, both fitted
+components use labelled data: the probes on each model's training split, and the
+false-agreement direction on the pooled false agreements of the training datasets. What the
 leave-one-dataset-out protocol establishes is therefore supervised transfer to
 an \emph{unlabelled target distribution} --- no labels are needed from the
 dataset being overseen, and target labels are used only to score the result
@@ -175,3 +177,20 @@ largest gain on Geometry of Truth. On TruthfulQA, total coverage is $42\%$ with
 logistic probes and $40\%$ with mass-mean probes. Most of the operational value
 comes from disagreement; the detector prioritizes part of the residual blind
 spot.
+
+\subsection{CCS on base models: a larger, still detectable blind spot}
+
+CCS does not reliably read truth on base models: its belief AUROC is only
+$0.527$--$0.548$. We therefore do not treat it as an unsupervised replacement
+for the main probes. We can still ask whether a supervised third-stage detector
+can rank false agreements produced by CCS probe pairs. Table~\ref{tab:ccs-base-models}
+shows that detection AUROC is similar across the reported strata, while false
+agreement rises from $0.151$ when neither model is a base model to $0.332$ when
+both are. Across individual base models, detector AUROC ranges from $0.820$ to
+$0.870$, overlapping the $0.804$--$0.850$ range for instruct models. The
+observed result is therefore a larger blind spot with no obvious loss in
+detectability for the supervised detector; it does not establish label-free
+detection. These CCS cells are a non-random subset, and the two-base-model row
+has only five cells, so the comparison is exploratory.
+
+\input{tables/ccs_base_models.tex}

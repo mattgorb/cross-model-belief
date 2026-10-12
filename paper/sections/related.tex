@@ -55,7 +55,18 @@ use one model's surprise at another's answer as a label-free correctness signal
 and improve detection of confident errors over within-model uncertainty
 baselines. Our disagreement router uses the analogous signal from two probe
 verdicts. The harder case is common-mode error, where both readers agree and
-there is no disagreement to route. \citet{afrin2026ensembles} show theoretically
+there is no disagreement to route. A second line reads uncertainty off a model's own activations rather than its
+outputs. \citet{radharapu2026calibrating} fit linear probes on a judge's hidden
+states to obtain calibrated confidence an order of magnitude more cheaply than
+sampling, and \citet{bao2025probing} use probe signals for selective prediction
+where output entropy alone is unreliable. Those probes estimate how certain
+\emph{one} reader is. The question here is different: given two readers that
+agree, is the agreement trustworthy? We find that the simplest combination of
+the two ideas --- the smaller of the two probes' margins --- is a competitive
+answer, which bears on how much the supervised machinery of
+Section~\ref{sec:method:direction} is doing.
+%
+\citet{afrin2026ensembles} show theoretically
 that the common-mode component of evaluator error is not identifiable from the
 evaluators' scores alone. We test an internal-state counterpart by asking whether false
 agreement leaves a learnable signature in the models' activations, and whether

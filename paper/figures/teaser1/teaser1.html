@@ -1,0 +1,93 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  :root {
+    color-scheme: light;
+    --foreground: #202124;
+    --muted-foreground: #5f6368;
+    --viz-series-1: #3478c8;
+    --viz-series-2: #e7773f;
+    --destructive: #c93535;
+    --primary-foreground: #ffffff;
+    --muted: #dfe3e8;
+    --border: #cfd4da;
+    --background: #ffffff;
+  }
+  @page { size: 12in 4in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 12in; height: 4in; background: #fff; }
+  body { padding: 8px 64px 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
+  #paper-one-teaser-ideas { width: 1024px; max-width: none; margin: 0 auto; }
+  @media print { html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body><div id="paper-one-teaser-ideas">
+  <style>
+    #paper-one-teaser-ideas { color: var(--foreground); font: 400 14px/1.4 system-ui, sans-serif; }
+    #paper-one-teaser-ideas .headline { margin: 0 0 3px; font-size: 20px; font-weight: 500; }
+    #paper-one-teaser-ideas .subhead { margin: 0 0 12px; color: var(--muted-foreground); }
+    #paper-one-teaser-ideas .panels { display: grid; grid-template-columns: 1fr 1fr 1.58fr; gap: 0; min-width: 900px; align-items: start; }
+    #paper-one-teaser-ideas .panels > section { min-width: 0; }
+    #paper-one-teaser-ideas .panels > section:nth-child(2) h2 { padding-left: 40px; }
+    #paper-one-teaser-ideas .panel-c { margin-left: -8px; width: calc(100% + 8px); }
+    #paper-one-teaser-ideas h2 { margin: 0 0 2px; padding-left: 10px; font-size: 16px; font-weight: 500; }
+    #paper-one-teaser-ideas .note { margin: 0 0 6px; color: var(--muted-foreground); font-size: 12px; }
+    #paper-one-teaser-ideas svg { display: block; width: 100%; height: auto; overflow: visible; }
+    #paper-one-teaser-ideas text { fill: var(--foreground); font: 400 13px system-ui, sans-serif; }
+    #paper-one-teaser-ideas .small { fill: var(--muted-foreground); font-size: 11px; }
+    #paper-one-teaser-ideas .value { font-size: 18px; font-weight: 500; }
+    #paper-one-teaser-ideas .strong { font-weight: 500; }
+    #paper-one-teaser-ideas .blue { fill: var(--viz-series-1); }
+    #paper-one-teaser-ideas .orange { fill: var(--viz-series-2); }
+    #paper-one-teaser-ideas .red { fill: var(--destructive); }
+    #paper-one-teaser-ideas .gray { fill: var(--muted); }
+    #paper-one-teaser-ideas .inverse { fill: var(--primary-foreground) !important; }
+    #paper-one-teaser-ideas .muted { fill: var(--muted); }
+    #paper-one-teaser-ideas .gridline { stroke: var(--border); stroke-width: 1; }
+  </style>
+  <div class="panels">
+    <section>
+      <h2>A · Same-family pair</h2>
+      <svg viewBox="0 0 300 250" role="img" aria-labelledby="same-title same-desc">
+        <title id="same-title">Same-family probe outcomes on false claims</title>
+        <desc id="same-desc">Mass-mean results for same-family pairs. Both probes say false in 62.9 percent of false-claim observations; Probe 1 says true while Probe 2 says false in 18.2 percent; Probe 1 says false while Probe 2 says true in 7.3 percent; both say true in 11.7 percent. The bottom-right both-say-true cell is red, and the both-say-false cell is blue.</desc>
+        <text x="190" y="21" text-anchor="middle" class="small">PROBE 1</text>
+        <text x="129" y="44" text-anchor="middle" class="small">FALSE</text><text x="251" y="44" text-anchor="middle" class="small">TRUE</text>
+        <text x="12" y="44" class="small">PROBE 2</text>
+        <text x="19" y="99" class="small">FALSE</text><text x="19" y="187" class="small">TRUE</text>
+        <rect x="83" y="55" width="100" height="78" rx="5" class="blue" opacity=".22"/><rect x="193" y="55" width="100" height="78" rx="5" class="orange" opacity=".8"/>
+        <rect x="83" y="143" width="100" height="78" rx="5" class="gray"/><rect x="193" y="143" width="100" height="78" rx="5" class="red"/>
+        <text x="133" y="91" text-anchor="middle" class="value">62.9%</text><text x="133" y="113" text-anchor="middle" class="small">both false</text>
+        <text x="243" y="91" text-anchor="middle" class="value">18.2%</text><text x="243" y="113" text-anchor="middle" class="small">disagree</text>
+        <text x="133" y="179" text-anchor="middle" class="value">7.3%</text><text x="133" y="201" text-anchor="middle" class="small">disagree</text>
+        <text x="243" y="179" text-anchor="middle" class="value inverse">11.7%</text><text x="243" y="201" text-anchor="middle" class="small inverse">both true</text>
+      </svg>
+    </section>
+    <section>
+      <h2>B · Cross-family pair</h2>
+      <svg viewBox="0 0 300 250" role="img" aria-labelledby="cross-title cross-desc">
+        <title id="cross-title">Cross-family probe outcomes on false claims</title>
+        <desc id="cross-desc">Mass-mean results for cross-family pairs. Both probes say false in 58.3 percent of false-claim observations; Probe 1 says true while Probe 2 says false in 22.4 percent; Probe 1 says false while Probe 2 says true in 8.2 percent; both say true in 11.2 percent. The bottom-right both-say-true cell is red, and the both-say-false cell is blue.</desc>
+        <text x="150" y="21" text-anchor="middle" class="small">PROBE 1</text>
+        <text x="89" y="44" text-anchor="middle" class="small">FALSE</text><text x="211" y="44" text-anchor="middle" class="small">TRUE</text>
+        <rect x="43" y="55" width="100" height="78" rx="5" class="blue" opacity=".22"/><rect x="153" y="55" width="100" height="78" rx="5" class="orange" opacity=".8"/>
+        <rect x="43" y="143" width="100" height="78" rx="5" class="gray"/><rect x="153" y="143" width="100" height="78" rx="5" class="red"/>
+        <text x="93" y="91" text-anchor="middle" class="value">58.3%</text><text x="93" y="113" text-anchor="middle" class="small">both false</text>
+        <text x="203" y="91" text-anchor="middle" class="value">22.4%</text><text x="203" y="113" text-anchor="middle" class="small">disagree</text>
+        <text x="93" y="179" text-anchor="middle" class="value">8.2%</text><text x="93" y="201" text-anchor="middle" class="small">disagree</text>
+        <text x="203" y="179" text-anchor="middle" class="value inverse">11.2%</text><text x="203" y="201" text-anchor="middle" class="small inverse">both true</text>
+      </svg>
+    </section>
+    <section class="panel-c">
+    <h2>C · Precision among the detector’s top 5%</h2>
+      <svg viewBox="0 0 480 250" role="img" aria-labelledby="data-title data-desc">
+        <title id="data-title">Top-five-percent extra-check precision compared with random checks</title>
+        <desc id="data-desc">Using the full mass-mean leave-one-dataset-out results, precision among detector-selected extra checks at a 5 percent budget, compared with random selection from the both-true pool: GoT 87.6 versus 20.9 percent; RTE 65.8 versus 30.7; TruthfulQA 53.4 versus 40.4; IMDB 46.0 versus 28.1; BoolQ 24.2 versus 17.4. Red ticks mark random baselines.</desc>
+        <line x1="100" y1="29" x2="100" y2="227" class="gridline"/>
+        <text x="10" y="55">GoT</text><rect x="100" y="39" width="320" height="22" rx="3" class="muted"/><rect x="100" y="39" width="280.3" height="22" rx="3" class="blue"/><line x1="166.9" y1="36" x2="166.9" y2="64" stroke="var(--destructive)" stroke-width="2"/><text x="390.3" y="55" class="strong">87.6%</text>
+        <text x="10" y="94">RTE</text><rect x="100" y="78" width="320" height="22" rx="3" class="muted"/><rect x="100" y="78" width="210.6" height="22" rx="3" class="blue"/><line x1="198.2" y1="75" x2="198.2" y2="103" stroke="var(--destructive)" stroke-width="2"/><text x="320.6" y="94" class="strong">65.8%</text>
+        <text x="10" y="133">TruthfulQA</text><rect x="100" y="117" width="320" height="22" rx="3" class="muted"/><rect x="100" y="117" width="170.9" height="22" rx="3" class="blue"/><line x1="229.3" y1="114" x2="229.3" y2="142" stroke="var(--destructive)" stroke-width="2"/><text x="280.9" y="133" class="strong">53.4%</text>
+        <text x="10" y="172">IMDB</text><rect x="100" y="156" width="320" height="22" rx="3" class="muted"/><rect x="100" y="156" width="147.2" height="22" rx="3" class="blue"/><line x1="189.9" y1="153" x2="189.9" y2="181" stroke="var(--destructive)" stroke-width="2"/><text x="257.2" y="172" class="strong">46.0%</text>
+        <text x="10" y="211">BoolQ</text><rect x="100" y="195" width="320" height="22" rx="3" class="muted"/><rect x="100" y="195" width="77.4" height="22" rx="3" class="blue"/><line x1="155.7" y1="192" x2="155.7" y2="220" stroke="var(--destructive)" stroke-width="2"/><text x="187.4" y="211" class="strong">24.2%</text>
+      </svg>
+    </section>
+  </div>
+</div>
+</body></html>
